@@ -1,3 +1,7 @@
+# FORK - SOCP solver
+
+This is a modified version of the PGLIB repository for testing SOCP relaxation of OPF. Following is the original README of PGLIB.
+
 # Power Grid Lib - Optimal Power Flow
 
 This benchmark library is curated and maintained by the [IEEE PES Task Force on Benchmarks for Validation of Emerging Power System Algorithms](https://power-grid-lib.github.io/) and is designed to evaluate a well established version of the the AC Optimal Power Flow problem.  This [introductory video](https://youtu.be/fC3hzddCJ2c) and [detailed report](https://arxiv.org/abs/1908.02788) present the motivations and goals of this benchmark library.  In particular, these cases are designed for benchmarking algorithms that solve the following Non-Convex Nonlinear Program,
