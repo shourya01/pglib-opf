@@ -756,7 +756,7 @@ class opfSocp():
         
         return x0
     
-    def calc_x0_vanilla(self, ppc: Dict = {}):
+    def calc_x0_flatstart(self, ppc: Dict = {}):
         
         # flat start
         
@@ -781,6 +781,10 @@ class opfSocp():
         x0[self.vidx['iSg']] = 0.5*(self.gen_qmin+self.gen_qmax)
         
         return x0
+    
+    def calc_x0_zero(self):
+        
+        return np.zeros(self.in_size)
     
     def change_loads(self, pd, qd):
         
