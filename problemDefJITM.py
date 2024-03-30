@@ -16,6 +16,7 @@ from scipy.sparse import SparseEfficiencyWarning
 warnings.simplefilter('ignore', SparseEfficiencyWarning)
 
 LARGE_NUMBER = 1e+10 # proxy for infinity
+UNIQUE_BUS_FILTER = False # todo
 
 class opfSocp():
 
@@ -167,12 +168,12 @@ class opfSocp():
                 br_a = self.brattr[il]
                 jacidx[cons_counter,self.vidx['rSt'][br_a['idx']]] = 1
             cons_counter += 1
-            self.num_indices_per_constr.append(
-                len(self.gen_on_bus[busid])+
-                1+
-                np.unique([k for k,_ in self.in_bus[busid]]).size+
-                np.unique([k for k,_ in self.out_bus[busid]]).size
-            )
+            # self.num_indices_per_constr.append(
+            #     len(self.gen_on_bus[busid])+
+            #     1+
+            #     (np.unique([k for k,_ in self.in_bus[busid]]).size if UNIQUE_BUS_FILTER else len([k for k,_ in self.in_bus[busid]]) )+
+            #     (np.unique([k for k,_ in self.out_bus[busid]]).size if UNIQUE_BUS_FILTER else len([k for k,_ in self.in_bus[busid]]) )
+            # )
             self.is_model.append(1)
         
         # reactive balance
@@ -190,12 +191,12 @@ class opfSocp():
                 br_a = self.brattr[il]
                 jacidx[cons_counter,self.vidx['iSt'][br_a['idx']]] = 1
             cons_counter += 1
-            self.num_indices_per_constr.append(
-                len(self.gen_on_bus[busid])+
-                1+
-                np.unique([k for k,_ in self.in_bus[busid]]).size+
-                np.unique([k for k,_ in self.out_bus[busid]]).size
-            )
+            # self.num_indices_per_constr.append(
+            #     len(self.gen_on_bus[busid])+
+            #     1+
+            #     (np.unique([k for k,_ in self.in_bus[busid]]).size if UNIQUE_BUS_FILTER else len([k for k,_ in self.in_bus[busid]]) )+
+            #     (np.unique([k for k,_ in self.out_bus[busid]]).size if UNIQUE_BUS_FILTER else len([k for k,_ in self.in_bus[busid]]) )
+            # )
             self.is_model.append(1)
             
         # real from flow
@@ -206,7 +207,7 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['rW'][attr['idx']]] = 1
             jacidx[cons_counter,self.vidx['iW'][attr['idx']]] = 1
             cons_counter += 1
-            self.num_indices_per_constr.append(4)
+            # self.num_indices_per_constr.append(4)
             self.is_model.append(1)
             
         # imag from flow
@@ -217,7 +218,7 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['rW'][attr['idx']]] = 1
             jacidx[cons_counter,self.vidx['iW'][attr['idx']]] = 1
             cons_counter += 1
-            self.num_indices_per_constr.append(4)
+            # self.num_indices_per_constr.append(4)
             self.is_model.append(1)
             
         # real to flow
@@ -228,7 +229,7 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['rW'][attr['idx']]] = 1
             jacidx[cons_counter,self.vidx['iW'][attr['idx']]] = 1
             cons_counter += 1
-            self.num_indices_per_constr.append(4)
+            # self.num_indices_per_constr.append(4)
             self.is_model.append(1)
             
         # imag to flow
@@ -239,7 +240,7 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['rW'][attr['idx']]] = 1
             jacidx[cons_counter,self.vidx['iW'][attr['idx']]] = 1
             cons_counter += 1
-            self.num_indices_per_constr.append(4)
+            # self.num_indices_per_constr.append(4)
             self.is_model.append(1)
             
         # from flow limits
@@ -248,7 +249,7 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['rSf'][attr['idx']]] = 1
             jacidx[cons_counter,self.vidx['iSf'][attr['idx']]] = 1
             cons_counter += 1 
-            self.num_indices_per_constr.append(2)
+            # self.num_indices_per_constr.append(2)
             self.is_model.append(0)
             
         # to flow limits
@@ -257,7 +258,7 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['rSt'][attr['idx']]] = 1
             jacidx[cons_counter,self.vidx['iSt'][attr['idx']]] = 1
             cons_counter += 1
-            self.num_indices_per_constr.append(2)
+            # self.num_indices_per_constr.append(2)
             self.is_model.append(0)
             
         # minimum angle limits
@@ -266,7 +267,7 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['iW'][attr['idx']]] = 1
             jacidx[cons_counter,self.vidx['rW'][attr['idx']]] = 1
             cons_counter += 1
-            self.num_indices_per_constr.append(2)
+            # self.num_indices_per_constr.append(2)
             self.is_model.append(0)
             
         # maximum angle limits
@@ -275,7 +276,7 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['rW'][attr['idx']]] = 1
             jacidx[cons_counter,self.vidx['iW'][attr['idx']]] = 1
             cons_counter += 1
-            self.num_indices_per_constr.append(2)
+            # self.num_indices_per_constr.append(2)
             self.is_model.append(0)
             
         # SOCR limits
@@ -286,11 +287,11 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['U'][attr['f']]] = 1
             jacidx[cons_counter,self.vidx['U'][attr['t']]] = 1
             cons_counter += 1
-            self.num_indices_per_constr.append(4)
+            # self.num_indices_per_constr.append(4)
             self.is_model.append(0)
             
         self.jacidx = np.nonzero(jacidx)
-        self.num_indices_per_constr = np.array(self.num_indices_per_constr)
+        # self.num_indices_per_constr = np.array(self.num_indices_per_constr)
         self.is_model = np.array(self.is_model)
         
     def jacobianJIT(self):
@@ -301,6 +302,7 @@ class opfSocp():
         self.jacsearch = lambda itm: self.jacflat[itm]
         self.jacnum = len(self.jacflat)
         self.jac_coeff = [{'const':0,'linidx':None,'lincoeff':0,'idx':idx} for idx in range(self.jacnum)]
+        self.num_indices_per_constr = np.zeros(self.jacidx[0].size)
         
         # constraint counter
         cons_counter = 0
@@ -311,17 +313,21 @@ class opfSocp():
             for genid in self.gen_on_bus[busid]:
                 idx = self.jacsearch((cons_counter,self.vidx['rSg'][genid]))
                 self.jac_coeff[idx]['const'] += 1
+                self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['U'][busid]))
             self.jac_coeff[idx]['const'] += -attr['gs']
+            self.num_indices_per_constr[idx] = cons_counter
             # add contribution from 'from' buses
             for _,ol in self.out_bus[busid]:
                 br_a = self.brattr[ol]
                 idx = self.jacsearch((cons_counter,self.vidx['rSf'][br_a['idx']]))
+                self.num_indices_per_constr[idx] = cons_counter
                 self.jac_coeff[idx]['const'] += -1
             # add contribution from 'to' buses
             for _,il in self.in_bus[busid]:
                 br_a = self.brattr[il]
                 idx = self.jacsearch((cons_counter,self.vidx['rSt'][br_a['idx']]))
+                self.num_indices_per_constr[idx] = cons_counter
                 self.jac_coeff[idx]['const'] += -1
             cons_counter += 1
         
@@ -331,18 +337,22 @@ class opfSocp():
             for genid in self.gen_on_bus[busid]:
                 idx = self.jacsearch((cons_counter,self.vidx['iSg'][genid]))
                 self.jac_coeff[idx]['const'] += 1
+                self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['U'][busid]))
             self.jac_coeff[idx]['const'] += +attr['bs']
+            self.num_indices_per_constr[idx] = cons_counter
             # add contribution from 'from' buses
             for _,ol in self.out_bus[busid]:
                 br_a = self.brattr[ol]
                 idx = self.jacsearch((cons_counter,self.vidx['iSf'][br_a['idx']]))
                 self.jac_coeff[idx]['const'] += -1
+                self.num_indices_per_constr[idx] = cons_counter
             # add contribution from 'to' buses
             for _,il in self.in_bus[busid]:
                 br_a = self.brattr[il]
                 idx = self.jacsearch((cons_counter,self.vidx['iSt'][br_a['idx']]))
                 self.jac_coeff[idx]['const'] += -1
+                self.num_indices_per_constr[idx] = cons_counter
             cons_counter += 1
             
         # real from flow
@@ -350,12 +360,16 @@ class opfSocp():
             attr = self.brattr[brid]
             idx = self.jacsearch((cons_counter,self.vidx['rSf'][attr['idx']]))
             self.jac_coeff[idx]['const'] += 1
+            self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['U'][attr['f']]))
             self.jac_coeff[idx]['const'] += -attr['yff'].real
+            self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['rW'][attr['idx']]))
             self.jac_coeff[idx]['const'] += -attr['yft'].real
+            self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['iW'][attr['idx']]))
             self.jac_coeff[idx]['const'] += -attr['yft'].imag
+            self.num_indices_per_constr[idx] = cons_counter
             cons_counter += 1
             
         # imag from flow
@@ -363,12 +377,16 @@ class opfSocp():
             attr = self.brattr[brid]
             idx = self.jacsearch((cons_counter,self.vidx['iSf'][attr['idx']]))
             self.jac_coeff[idx]['const'] += 1
+            self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['U'][attr['f']]))
             self.jac_coeff[idx]['const'] += attr['yff'].imag
+            self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['rW'][attr['idx']]))
             self.jac_coeff[idx]['const'] += attr['yft'].imag
+            self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['iW'][attr['idx']]))
             self.jac_coeff[idx]['const'] += -attr['yft'].real
+            self.num_indices_per_constr[idx] = cons_counter
             cons_counter += 1
             
         # real to flow
@@ -376,12 +394,16 @@ class opfSocp():
             attr = self.brattr[brid]
             idx = self.jacsearch((cons_counter,self.vidx['rSt'][attr['idx']]))
             self.jac_coeff[idx]['const'] += 1
+            self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['U'][attr['t']]))
             self.jac_coeff[idx]['const'] += -attr['ytt'].real
+            self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['rW'][attr['idx']]))
             self.jac_coeff[idx]['const'] += -attr['ytf'].real
+            self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['iW'][attr['idx']]))
             self.jac_coeff[idx]['const'] += attr['ytf'].imag
+            self.num_indices_per_constr[idx] = cons_counter
             cons_counter += 1
             
         # imag to flow
@@ -389,12 +411,16 @@ class opfSocp():
             attr = self.brattr[brid]
             idx = self.jacsearch((cons_counter,self.vidx['iSt'][attr['idx']]))
             self.jac_coeff[idx]['const'] += 1
+            self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['U'][attr['t']]))
             self.jac_coeff[idx]['const'] += attr['ytt'].imag
+            self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['rW'][attr['idx']]))
             self.jac_coeff[idx]['const'] += attr['ytf'].imag
+            self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['iW'][attr['idx']]))
             self.jac_coeff[idx]['const'] += attr['ytf'].real
+            self.num_indices_per_constr[idx] = cons_counter
             cons_counter += 1
             
         # from flow limits
@@ -403,9 +429,11 @@ class opfSocp():
             idx = self.jacsearch((cons_counter,self.vidx['rSf'][attr['idx']]))
             self.jac_coeff[idx]['linidx'] = self.vidx['rSf'][attr['idx']]
             self.jac_coeff[idx]['lincoeff'] = 2
+            self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['iSf'][attr['idx']]))
             self.jac_coeff[idx]['linidx'] = self.vidx['iSf'][attr['idx']]
             self.jac_coeff[idx]['lincoeff'] = 2
+            self.num_indices_per_constr[idx] = cons_counter
             cons_counter += 1 
             
         # to flow limits
@@ -414,9 +442,11 @@ class opfSocp():
             idx = self.jacsearch((cons_counter,self.vidx['rSt'][attr['idx']]))
             self.jac_coeff[idx]['linidx'] = self.vidx['rSt'][attr['idx']]
             self.jac_coeff[idx]['lincoeff'] = 2
+            self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['iSt'][attr['idx']]))
             self.jac_coeff[idx]['linidx'] = self.vidx['iSt'][attr['idx']]
             self.jac_coeff[idx]['lincoeff'] = 2
+            self.num_indices_per_constr[idx] = cons_counter
             cons_counter += 1
             
         # minimum angle limits
@@ -424,8 +454,10 @@ class opfSocp():
             attr = self.brattr[brid]
             idx = self.jacsearch((cons_counter,self.vidx['iW'][attr['idx']]))
             self.jac_coeff[idx]['const'] += 1
+            self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['rW'][attr['idx']]))
             self.jac_coeff[idx]['const'] += - np.tan(attr['angmax'])
+            self.num_indices_per_constr[idx] = cons_counter
             cons_counter += 1
             
         # maximum angle limits
@@ -433,8 +465,10 @@ class opfSocp():
             attr = self.brattr[brid]
             idx = self.jacsearch((cons_counter,self.vidx['rW'][attr['idx']]))
             self.jac_coeff[idx]['const'] += np.tan(attr['angmin'])
+            self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['iW'][attr['idx']]))
             self.jac_coeff[idx]['const'] += - 1
+            self.num_indices_per_constr[idx] = cons_counter
             cons_counter += 1
             
         # SOCR limits
@@ -443,15 +477,19 @@ class opfSocp():
             idx = self.jacsearch((cons_counter,self.vidx['rW'][attr['idx']]))
             self.jac_coeff[idx]['linidx'] = self.vidx['rW'][attr['idx']]
             self.jac_coeff[idx]['lincoeff'] = 2
+            self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['iW'][attr['idx']]))
             self.jac_coeff[idx]['linidx'] = self.vidx['iW'][attr['idx']]
             self.jac_coeff[idx]['lincoeff'] = 2
+            self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['U'][attr['f']]))
             self.jac_coeff[idx]['linidx'] = self.vidx['U'][attr['t']]
             self.jac_coeff[idx]['lincoeff'] = -1
+            self.num_indices_per_constr[idx] = cons_counter
             idx = self.jacsearch((cons_counter,self.vidx['U'][attr['t']]))
             self.jac_coeff[idx]['linidx'] = self.vidx['U'][attr['f']]
             self.jac_coeff[idx]['lincoeff'] = -1
+            self.num_indices_per_constr[idx] = cons_counter
             cons_counter += 1
         
         # constant part of jacobian
@@ -459,6 +497,7 @@ class opfSocp():
         self.jac_emb_idx = np.array([itm['idx'] for itm in self.jac_coeff if itm['linidx'] is not None])
         self.jac_lin_idx = np.array([itm['linidx'] for itm in self.jac_coeff if itm['linidx'] is not None]).astype(int)
         self.jac_lin_coeff = np.array([itm['lincoeff'] for itm in self.jac_coeff if itm['linidx'] is not None])
+        self.num_indices_per_constr = self.num_indices_per_constr.astype(int)
         
     def hessianJIT(self):
         
@@ -550,7 +589,7 @@ class opfSocp():
         
     def jacobianstructure(self):
         
-        return self.jacidx
+        return (self.jacidx[0][self.active_constr[self.num_indices_per_constr]==1], self.jacidx[1][self.active_constr[self.num_indices_per_constr]==1])
     
     def hessianstructure(self):
         
@@ -567,6 +606,8 @@ class opfSocp():
         
         self.active_constr = constr_vec
         self.active_constr[self.is_model == 1] = 1
+        self.jacobianstructure()
+        self.jacobianJIT()
         
     def objective(self,x):
         
@@ -695,7 +736,7 @@ class opfSocp():
         # JIT
         z = np.zeros_like(self.jac_const)
         z[self.jac_emb_idx] = x[self.jac_lin_idx]*self.jac_lin_coeff
-        return (self.jac_const + z)[np.repeat(self.active_constr,self.num_indices_per_constr) == 1]
+        return (self.jac_const + z)[self.active_constr[self.num_indices_per_constr] == 1]
     
     def hessian(self, x, _lam, _objfac):
         
@@ -859,7 +900,4 @@ class opfSocp():
         Sf = rSf + 1j * iSf
         St = rSt + 1j * iSt
         
-        return U, W, Sg, Sf, St
-            
-            
-            
+        return U, W, Sg, Sf, St          

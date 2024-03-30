@@ -48,7 +48,7 @@ def suppress_stdout():
             sys.stdout = old_stdout    
 
 # user options 
-MAX_BUS = 4 # upper limit of number of buses in cases to be considered
+MAX_BUS = 10000 # upper limit of number of buses in cases to be considered
 RATE = 'A' # which line rating to use ('A','B','C')
 
 if __name__ == "__main__":
@@ -57,7 +57,8 @@ if __name__ == "__main__":
     current_directory = os.getcwd()+'/'
     # current_directory = '/home/sbose/pglib-opf/' # for running on BEBOP
     all_files_and_directories = os.listdir(current_directory)
-    case_files = [os.path.join(current_directory, f) for f in all_files_and_directories if f.endswith('.m') and os.path.isfile(os.path.join(current_directory, f))]
+    # case_files = [os.path.join(current_directory, f) for f in all_files_and_directories if f.endswith('.m') and os.path.isfile(os.path.join(current_directory, f))]
+    case_files = [current_directory+i for i in ['pglib_opf_case2312_goc.m',"pglib_opf_case4601_goc.m","pglib_opf_case10000_goc.m"]]
 
     cases, casenames = [], []
     cases_full, casenames_full = [], []
@@ -77,7 +78,8 @@ if __name__ == "__main__":
             # append
             cases.append(case_correct_idx)
             casenames.append(cname)
-            
+    
+    # boil        
     
     # solve
     
@@ -113,7 +115,7 @@ if __name__ == "__main__":
         prob.add_option('mumps_mem_percent',25000)
         prob.add_option('mu_max',1e-1)
         prob.add_option('mu_init',1e-1)
-        prob.add_option('derivative_test','second-order')
+        # prob.add_option('derivative_test','second-order')
         
         # load stored MATPOWER solution (referred to as 'nonlinear')
         with open(f"{current_directory}/{cn}_solved.pkl","rb") as file:
