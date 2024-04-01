@@ -16,7 +16,7 @@ warnings.simplefilter("ignore", np.ComplexWarning)
 
 # user options 
 MAX_BUS = 10000 # upper limit of number of buses in cases to be considered
-NUM_POINTS = 100 # number of data points to save
+NUM_POINTS = 1000 # number of data points to save
 
 # main
 
@@ -52,8 +52,8 @@ if __name__ == "__main__":
     # solve
     for cn,this_case in zip(casenames,cases):
         
-        # generate lower bound of power demand margin
-        optObj = opfSocpMargin(this_case,cn,margin_sense=-1)
+        # generate upper bound of power demand margin
+        optObj = opfSocpMargin(this_case,cn,margin_sense=1)
         cub, clb = optObj.calc_cons_bounds()
         xub, xlb = optObj.calc_var_bounds()
         # Define IPOPT problem
@@ -131,18 +131,28 @@ if __name__ == "__main__":
         
         # Setup solver options
         prob.add_option('tol',1e-6)
-        prob.add_option('max_iter',2500)
         prob.add_option('mumps_mem_percent',25000)
-        prob.add_option('mu_max',1e-1)  
+        prob.add_option('mu_max',1e-1) 
         prob.add_option('mu_init',1e-1)
+        prob.add_option('max_iter',1000)
         
         # Solve ipopt problem
         _, info_base = prob.solve(optObj.calc_x0_flatstart())
         
+        # data generation
+        print(f"\n--------\nSolving {cn}.\n--------\n",flush=True)
+        
+        # Setup solver options
+        prob.add_option('tol',1e-6)
+        prob.add_option('mumps_mem_percent',25000)
+        prob.add_option('mu_max',1e-1) 
+        prob.add_option('mu_init',1e-1)
+        prob.add_option('print_level',0) 
+        prob.add_option('max_iter',1000)
+        
         # generate points
         data = []
-        prob.add_option('mu_init',1e-7)
-        for pt_idx in trange(NUM_POINTS):
+        for pt_idx in (t:=trange(NUM_POINTS)):
             
             # set random seed
             np.random.seed(pt_idx)
@@ -156,12 +166,15 @@ if __name__ == "__main__":
             optObj.change_loads(dpd,dqd)
             
             # generate input dicts
-            input_data = {'pd':pd,'qd':qd,'flow_lim':optObj.flow_lim,'angmin':optObj.angmin,'angmax':optObj.angmax}
+            input_data = {'pd':dpd,'qd':dqd,'flow_lim':optObj.flow_lim,'angmin':optObj.angmin,'angmax':optObj.angmax}
             
             # solve problem
-            _, info = prob.solve(optObj.calc_x0_flatstart())
+            _, info = prob.solve(info_base['x'],lagrange=info_base['mult_g'].tolist(),zl=info_base['mult_x_L'].tolist(),zu=info_base['mult_x_U'].tolist())
             data.append((input_data,info))
             
+            # output status
+            t.set_description(f"Status of point {pt_idx} is {info['status']} : {info['status_msg']}.")
+            
         # save data
-        with open(os.getcws()+f'/{cn}_data.pkl','wb') as file:
+        with open(os.getcwd()+f'/{cn}_data.pkl','wb') as file:
             pickle.dump(data,file)
