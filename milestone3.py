@@ -57,8 +57,8 @@ if __name__ == "__main__":
     current_directory = os.getcwd()+'/'
     # current_directory = '/home/sbose/pglib-opf/' # for running on BEBOP
     all_files_and_directories = os.listdir(current_directory)
-    # case_files = [os.path.join(current_directory, f) for f in all_files_and_directories if f.endswith('.m') and os.path.isfile(os.path.join(current_directory, f))]
-    case_files = [current_directory+i for i in ['pglib_opf_case2312_goc.m',"pglib_opf_case4601_goc.m","pglib_opf_case10000_goc.m"]]
+    case_files = [os.path.join(current_directory, f) for f in all_files_and_directories if f.endswith('.m') and os.path.isfile(os.path.join(current_directory, f))]
+    # case_files = [current_directory+i for i in ['pglib_opf_case2312_goc.m',"pglib_opf_case4601_goc.m","pglib_opf_case10000_goc.m"]]
 
     cases, casenames = [], []
     cases_full, casenames_full = [], []
@@ -113,7 +113,7 @@ if __name__ == "__main__":
         prob.add_option('tol',1e-6)
         prob.add_option('max_iter',2500)
         prob.add_option('mumps_mem_percent',25000)
-        prob.add_option('mu_max',1e-1)
+        prob.add_option('mu_max',1e-1)  
         prob.add_option('mu_init',1e-1)
         # prob.add_option('derivative_test','second-order')
         
@@ -124,7 +124,7 @@ if __name__ == "__main__":
         
         # Solve ipopt problem
         # cProfile.run('x,info = prob.solve(optObj.calc_x0_vanilla())')
-        x, info = prob.solve(optObj.calc_x0_zero())
+        x, info = prob.solve(optObj.calc_x0_flatstart())
         
         # # if unsolved, try a re-solve with matpower's solution as initial point
         # if not info['status_msg'].startswith(b'Algorithm terminated successfully'):
@@ -132,11 +132,11 @@ if __name__ == "__main__":
         #     x, info = prob.solve(optObj.calc_x0_matpower(obj))
             
         # if unsolved, try a re-solve with least-square initialization
-        if not info['status_msg'].startswith(b'Algorithm terminated successfully'):
-            print(f"\n--------\nRe-solving {cn} with least square init.\n--------\n",flush=True)
-            prob.add_option('least_square_init_primal','yes')
-            prob.add_option('least_square_init_duals','yes')
-            x, info = prob.solve(optObj.calc_x0_vanilla())
+        # if not info['status_msg'].startswith(b'Algorithm terminated successfully'):
+        #     print(f"\n--------\nRe-solving {cn} with least square init.\n--------\n",flush=True)
+        #     prob.add_option('least_square_init_primal','yes')
+        #     prob.add_option('least_square_init_duals','yes')
+        #     x, info = prob.solve(optObj.calc_x0_flatstart())
         
         # evaluate solution
         if info['status_msg'].startswith(b'Algorithm terminated successfully'):

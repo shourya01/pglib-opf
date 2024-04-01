@@ -22,8 +22,10 @@ from contextlib import contextmanager
 import warnings
 import cyipopt
 from problemDefJITM import opfSocp
+from problemDefJITMargin import opfSocpMargin
 from copy import deepcopy
 import cProfile
+import cython
 # suppress ComplexWarning
 warnings.simplefilter("ignore", np.ComplexWarning)
 # check for latex and configure matplotlib accordingly
@@ -48,7 +50,7 @@ def suppress_stdout():
             sys.stdout = old_stdout    
 
 # user options 
-MAX_BUS = 10 # upper limit of number of buses in cases to be considered
+MAX_BUS = 4 # upper limit of number of buses in cases to be considered
 RATE = 'A' # which line rating to use ('A','B','C')
 
 if __name__ == "__main__":
@@ -90,9 +92,114 @@ if __name__ == "__main__":
     iterlist = [itm for itm in zip(casenames,cases)]
     for cn,this_case in iterlist:
         
-        # Initialize
-        print(f"\n--------\nSolving {cn}.\n--------\n",flush=True)
-        optObj = opfSocp(this_case,cn)
+        # # Initialize
+        # print(f"\n--------\nSolving {cn}.\n--------\n",flush=True)
+        # optObj = opfSocp(this_case,cn)
+        # cub, clb = optObj.calc_cons_bounds()
+        # xub, xlb = optObj.calc_var_bounds()
+        
+        # # Define IPOPT problem
+        # prob = cyipopt.Problem(
+        #     n = optObj.in_size,
+        #     m = optObj.cons_size,
+        #     problem_obj=optObj,
+        #     lb=xlb,
+        #     ub=xub,
+        #     cl=clb,
+        #     cu=cub
+        # )
+        
+        # # Setup solver options
+        # prob.add_option('tol',1e-6)
+        # prob.add_option('max_iter',2500)
+        # prob.add_option('mumps_mem_percent',25000)
+        # prob.add_option('mu_max',1e-0)
+        # prob.add_option('mu_init',1e-0)
+        # prob.add_option('nlp_lower_bound_inf',-optObj.LARGE_NUMBER+1)
+        # prob.add_option('nlp_upper_bound_inf',optObj.LARGE_NUMBER-1)
+        # prob.add_option('derivative_test','second-order')
+        
+        # # Solve ipopt problem
+        # # cProfile.run('x,info = prob.solve(optObj.calc_x0_vanilla())')
+        # x, info = prob.solve(optObj.calc_x0_flatstart())    
+        
+        # # evaluate solution
+        # if info['status_msg'].startswith(b'Algorithm terminated successfully'):
+        #     solved += 1
+        # else:
+        #     unsolved += 1
+            
+        # # Now resolve with warm start
+        
+        # print(f"\n--------\nSolving {cn} with warm start.\n--------\n",flush=True)
+        
+        # prob.add_option('mu_init',1e-7)
+        # prob.solve(info['x'],lagrange=info['mult_g'].tolist(),zl=info['mult_x_L'].tolist(),zu=info['mult_x_U'].tolist())
+        
+        # print(f"\n--------\nSolving {cn} with warm start and reduced constr.\n--------\n",flush=True)
+        
+        # cub[18] = optObj.LARGE_NUMBER
+        # prob = cyipopt.Problem(
+        #     n = optObj.in_size,
+        #     m = optObj.cons_size,
+        #     problem_obj=optObj,
+        #     lb=xlb,
+        #     ub=xub,
+        #     cl=clb,
+        #     cu=cub
+        # )
+        
+        # # Setup solver options
+        # prob.add_option('tol',1e-6)
+        # prob.add_option('max_iter',2500)
+        # prob.add_option('mumps_mem_percent',25000)
+        # prob.add_option('mu_max',1e-0)
+        # prob.add_option('mu_init',1e-7)
+        # prob.add_option('nlp_lower_bound_inf',-optObj.LARGE_NUMBER+1)
+        # prob.add_option('nlp_upper_bound_inf',optObj.LARGE_NUMBER-1)
+        # prob.add_option('derivative_test','second-order')
+        
+        # prob.solve(info['x'],lagrange=info['mult_g'].tolist(),zl=info['mult_x_L'].tolist(),zu=info['mult_x_U'].tolist())
+        
+        # Find min margin
+        
+        print(f"\n--------\nSolving {cn} min margin for pd, qd.\n--------\n",flush=True)
+        optObj = opfSocpMargin(this_case,cn,margin_sense=-1)
+        cub, clb = optObj.calc_cons_bounds()
+        xub, xlb = optObj.calc_var_bounds()
+        
+        print(f"cidx: {optObj.cidx}, vidx: {optObj.vidx}")
+        
+        # Define IPOPT problem
+        prob = cyipopt.Problem(
+            n = optObj.in_size,
+            m = optObj.cons_size,
+            problem_obj=optObj,
+            lb=xlb,
+            ub=xub,
+            cl=clb,
+            cu=cub
+        )
+        
+        # Setup solver options
+        prob.add_option('tol',1e-6)
+        prob.add_option('max_iter',2500)
+        prob.add_option('mumps_mem_percent',25000)
+        prob.add_option('mu_max',1e-0)
+        prob.add_option('mu_init',1e-0)
+        prob.add_option('nlp_lower_bound_inf',-optObj.LARGE_NUMBER+1)
+        prob.add_option('nlp_upper_bound_inf',optObj.LARGE_NUMBER-1)
+        prob.add_option('derivative_test','second-order')
+        
+        # solve
+        x, info = prob.solve(optObj.calc_x0_flatstart())  
+        minMarginPd = x[optObj.vidx['mPd']]
+        minMarginQd = x[optObj.vidx['mQd']]
+        
+        # Find max margin
+        
+        print(f"\n--------\nSolving {cn} min margin for pd, qd.\n--------\n",flush=True)
+        optObj = opfSocpMargin(this_case,cn,margin_sense=1)
         cub, clb = optObj.calc_cons_bounds()
         xub, xlb = optObj.calc_var_bounds()
         
@@ -113,139 +220,34 @@ if __name__ == "__main__":
         prob.add_option('mumps_mem_percent',25000)
         prob.add_option('mu_max',1e-0)
         prob.add_option('mu_init',1e-0)
-        # prob.add_option('derivative_test','second-order')
+        prob.add_option('nlp_lower_bound_inf',-optObj.LARGE_NUMBER+1)
+        prob.add_option('nlp_upper_bound_inf',optObj.LARGE_NUMBER-1)
+        prob.add_option('derivative_test','second-order')
         
-        # load stored MATPOWER solution (referred to as 'nonlinear')
-        with open(f"{current_directory}/{cn}_solved.pkl","rb") as file:
-            obj = pickle.load(file)
-            obj = ext2int(obj)
+        # solve
+        x, info = prob.solve(optObj.calc_x0_flatstart())  
+        maxMarginPd = x[optObj.vidx['mPd']]
+        maxMarginQd = x[optObj.vidx['mQd']]
         
-        # Solve ipopt problem
-        # cProfile.run('x,info = prob.solve(optObj.calc_x0_vanilla())')
-        x, info = prob.solve(optObj.calc_x0_flatstart())    
+        # plotting
+        pd, qd = optObj.get_loads()
+        fig, axs = plt.subplots(nrows=2,ncols=1,figsize=(10,8))
         
-        # # if unsolved, try a re-solve with matpower's solution as initial point
-        # if not info['status_msg'].startswith(b'Algorithm terminated successfully'):
-        #     print(f"\n--------\nRe-solving {cn} with MATPOWER init.\n--------\n",flush=True)
-        #     x, info = prob.solve(optObj.calc_x0_matpower(obj))
-            
-        # if unsolved, try a re-solve with least-square initialization
-        if not info['status_msg'].startswith(b'Algorithm terminated successfully'):
-            print(f"\n--------\nRe-solving {cn} with least square init.\n--------\n",flush=True)
-            prob.add_option('least_square_init_primal','yes')
-            prob.add_option('least_square_init_duals','yes')
-            x, info = prob.solve(optObj.calc_x0_vanilla())
+        axs[0].plot(pd+maxMarginPd,'g--',label=r'$P_d^{\max}$')
+        axs[0].plot(pd-minMarginPd,'b-.',label=r'$Q_d^{\min}$')
+        axs[0].plot(pd,'k',linewidth=2,label=r'$P_d$')
+        axs[0].set_xlim([0,pd.size-1])
+        axs[0].set_xlabel('Bus_index')
+        axs[0].set_ylabel('Real demand pu')
+        axs[0].legend()
         
-        # evaluate solution
-        if info['status_msg'].startswith(b'Algorithm terminated successfully'):
-            solved += 1
-        else:
-            unsolved += 1
-            
-        # Now resolve with warm start
+        axs[1].plot(qd+maxMarginQd,'g--',label=r'$Q_d^{\max}$')
+        axs[1].plot(qd-minMarginQd,'b-.',label=r'$Q_d^{\min}$')
+        axs[1].plot(qd,'k',linewidth=2,label=r'$Q_d$')
+        axs[1].set_xlim([0,pd.size-1])
+        axs[1].set_xlabel('Bus_index')
+        axs[1].set_ylabel('Reactive demand pu')
+        axs[1].legend()
         
-        print(f"\n--------\nSolving {cn} with warm start.\n--------\n",flush=True)
-        prob.add_option('mu_init',1e-7)
-        prob.add_option('warm_start_init_point','yes')
-        prob.solve(info['x'],lagrange=info['mult_g'].tolist(),zl=info['mult_x_L'].tolist(),zu=info['mult_x_U'].tolist())
-        
-        # remove a constraint and warm start
-        
-        print(f"\n--------\nSolving {cn} with one constraint disabled.\n--------\n",flush=True)
-        # Define IPOPT problem
-        prob = cyipopt.Problem(
-            n = optObj.in_size,
-            m = optObj.cons_size,
-            problem_obj=optObj,
-            lb=xlb,
-            ub=xub,
-            cl=clb,
-            cu=cub
-        )
-        
-        # Setup solver options
-        prob.add_option('tol',1e-6)
-        prob.add_option('max_iter',2500)
-        prob.add_option('mumps_mem_percent',25000)
-        prob.add_option('mu_max',1e-0)
-        prob.add_option('mu_init',1e-7)
-        # prob.add_option('derivative_test','second-order')
-        print(optObj.cidx)
-        activ = optObj.active_constr
-        activ[18] = 0
-        optObj.setActiveConstr(activ)
-        prob.solve(info['x'],lagrange=info['mult_g'][activ].tolist(),zl=info['mult_x_L'].tolist(),zu=info['mult_x_U'].tolist())
-        
-        
-        # # restore variables
-        # U, W, Sg, Sf, St = optObj.vars_calculator(x)
-        
-        # # pickle results
-        # with open(f"{current_directory}/{cn}_socp_solved.pkl","wb") as file:
-        #     pickle.dump({'x':x,'U':U,'W':W,'Sg':Sg,'Sf':Sf,'St':St,'info':info},file)
-        
-        # # plot
-
-        # # calculate soc objective in natural units
-        # soc_pg, nl_pg = Sg.real, obj['gen'][:,PG] / optObj.baseMVA
-        # obj_soc, obj_nl = 0, 0
-        # for gidx in range(optObj.n_gen):
-        #     if np.abs(optObj.gen_cost[gidx,0]) > 1e-5: # quadratic cost
-        #         obj_soc = obj_soc + optObj.gen_cost[gidx,0]*soc_pg[gidx]**2
-        #         obj_nl = obj_nl + optObj.gen_cost[gidx,0]*nl_pg[gidx]**2
-        #     if np.abs(optObj.gen_cost[gidx,1]) > 1e-5: # linear cost
-        #         obj_soc = obj_soc + optObj.gen_cost[gidx,1]*soc_pg[gidx]
-        #         obj_nl = obj_nl + optObj.gen_cost[gidx,1]*nl_pg[gidx]
-        #     if np.abs(optObj.gen_cost[gidx,2]) > 1e-5: # constant cost
-        #         obj_soc = obj_soc + optObj.gen_cost[gidx,2]
-        #         obj_nl = obj_nl + optObj.gen_cost[gidx,2]
-        # # compute gap
-        # gap = 100 * np.abs(obj_nl - obj_soc) / np.abs(obj_nl)
-        # # plot
-        # fig, axs = plt.subplots(1, 4, figsize=(25, 5)) # common axes
-        # # how well does socp relaxation respect line flow constraints
-        # axs[0].plot((np.abs(Sf) / optObj.flow_lim), label=r'$\frac{|\mathbf{S}_f^{socp}|}{\mathbf{S}^{max}}$')
-        # axs[0].plot((np.abs(St) / optObj.flow_lim), label=r'$\frac{|\mathbf{S}_t^{socp}|}{\mathbf{S}^{max}}$')
-        # axs[0].plot(np.ones_like(Sf),'k--',label=r'$1$')
-        # axs[0].legend()
-        # axs[0].set_xlabel('Branch index')
-        # axs[0].set_ylabel('Ratio of flow to upper bound')
-        # axs[0].set_xlim([0,Sf.size-1])
-        # # voltage limits
-        # vmag_nl, vmag_socp = obj['bus'][:,VM], np.sqrt(U)
-        # axs[1].plot(vmag_nl,'*-',label=r'$|V^{nl}|$')
-        # axs[1].plot(vmag_socp,'*-',label=r'$|V^{socp}|$')
-        # axs[1].plot(optObj.bus_vmin,'k--',label=r'$\underline{V}$')
-        # axs[1].plot(optObj.bus_vmax,'k--',label=r'$\overline{V}$')
-        # axs[1].legend()
-        # axs[1].set_xlabel('Bus index')
-        # axs[1].set_ylabel(r'$|V|$ in p.u.')
-        # axs[1].set_xlim([0,optObj.n_bus-1])
-        # # real power
-        # pg_nl, pg_socp = obj['gen'][:,PG] / obj['baseMVA'], Sg.real
-        # axs[2].plot(pg_nl,'*-',label=r'$\mathbf{P}^{nl}_{gen}$')
-        # axs[2].plot(pg_socp,'*-',label=r'$\mathbf{P}^{socp}_{gen}$')
-        # axs[2].plot(optObj.gen_pmin,'k--',label=r'$\underline{P_{gen}}$')
-        # axs[2].plot(optObj.gen_pmax,'k--',label=r'$\overline{P_{gen}}$')
-        # axs[2].legend()
-        # axs[2].set_xlabel('Gen index')
-        # axs[2].set_ylabel(r'$P_{gen}$ in p.u.')
-        # axs[2].set_xlim([0,pg_nl.size-1])
-        # # reactive power
-        # qg_nl, qg_socp = obj['gen'][:,QG] / obj['baseMVA'], Sg.imag
-        # axs[3].plot(qg_nl,'*-',label=r'$\mathbf{Q}^{nl}_{gen}$')
-        # axs[3].plot(qg_socp,'*-',label=r'$\mathbf{Q}^{socp}_{gen}$')
-        # axs[3].plot(optObj.gen_qmin,'k--',label=r'$\underline{Q_{gen}}$')
-        # axs[3].plot(optObj.gen_qmax,'k--',label=r'$\overline{Q_{gen}}$')
-        # axs[3].legend()
-        # axs[3].set_xlabel('Gen index')
-        # axs[3].set_ylabel(r'$Q_{gen}$ in p.u.')
-        # axs[3].set_xlim([0,qg_nl.size-1])
-        # # title
-        # fig.suptitle(r"%s: Optimality gap $100\times\left\lvert\frac{f^*_{nl}-f^*_{socp}}{f^*_{nl}}\right\rvert$=%s\%s, $nl$-MATPOWER (MIPS), $socp$-%s\\{\small Status message: %s}"%(f"{cn}",f"{gap:.3f}","%",'IPOPT',info['status_msg']))
-        # plt.tight_layout()
-        # plt.savefig(f'{cn}_results.pdf',format='pdf',bbox_inches='tight')
-        # plt.close()
-
-    # DISPLAY OUTCOME
-    print(f"Solved {100*solved/(solved+unsolved)} percent of cases.")
+        plt.savefig(f'{cn}_margins.pdf',format='pdf',bbox_inches='tight')
+        plt.close()
