@@ -8,6 +8,7 @@ from pypower.ext2int import ext2int
 from pypower.api import loadcase
 from problemDefJITM import opfSocp
 from problemDefJITMargin import opfSocpMargin
+from mpi4py import MPI
 
 # get octave object
 octave = Oct2Py()
@@ -16,11 +17,17 @@ warnings.simplefilter("ignore", np.ComplexWarning)
 
 # user options 
 MAX_BUS = 10000 # upper limit of number of buses in cases to be considered
-NUM_POINTS = 1000 # number of data points to save
+NUM_POINTS = 10000 # number of data points to save
 
 # main
 
 if __name__ == "__main__":
+    
+    # get mpi rank
+    comm = MPI.COMM_WORLD
+    mpi_rank = comm.Get_rank()
+    mpi_size = comm.Get_size()
+    NUM_POINTS = NUM_POINTS // mpi_size
 
     # get all cases in current directory
     current_directory = os.getcwd()+'/'
@@ -113,7 +120,7 @@ if __name__ == "__main__":
         minMarginQd = maxMarginQd
         
         # solve base problem
-        print(f"\n--------\nSolving {cn}.\n--------\n",flush=True)
+        # print(f"\n--------\nSolving {cn}.\n--------\n",flush=True)
         optObj = opfSocp(this_case,cn)
         cub, clb = optObj.calc_cons_bounds()
         xub, xlb = optObj.calc_var_bounds()
@@ -166,15 +173,15 @@ if __name__ == "__main__":
             optObj.change_loads(dpd,dqd)
             
             # generate input dicts
-            input_data = {'pd':dpd,'qd':dqd,'flow_lim':optObj.flow_lim,'angmin':optObj.angmin,'angmax':optObj.angmax}
+            input_data = {'pd':dpd,'qd':dqd,'flow_lim_f':optObj.flow_lim,'flow_lim_t':optObj.flow_lim,'angmin':optObj.angmin,'angmax':optObj.angmax}
             
             # solve problem
             _, info = prob.solve(info_base['x'],lagrange=info_base['mult_g'].tolist(),zl=info_base['mult_x_L'].tolist(),zu=info_base['mult_x_U'].tolist())
             data.append((input_data,info))
             
             # output status
-            t.set_description(f"Status of point {pt_idx} is {info['status']} : {info['status_msg']}.")
+            t.set_description(f"Status of point {pt_idx} is {info['status']} : {info['status_msg']}. Process ({mpi_rank}/{mpi_size}).")
             
         # save data
-        with open(os.getcwd()+f'/{cn}_data.pkl','wb') as file:
+        with open(os.getcwd()+f'/data2/{cn}_data_rank_{mpi_rank}.pkl','wb') as file:
             pickle.dump(data,file)

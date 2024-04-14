@@ -150,6 +150,8 @@ class opfSocp():
         
         jacidx = np.zeros(shape=(self.cons_size,self.in_size))
         self.is_model = []
+        self.is_equality = []
+        self.is_nonmodel_equality = []
         
         # constraint counter
         cons_counter = 0
@@ -169,7 +171,9 @@ class opfSocp():
                 br_a = self.brattr[il]
                 jacidx[cons_counter,self.vidx['rSt'][br_a['idx']]] = 1
             cons_counter += 1
-            self.is_model.append(1)
+            self.is_model.append(0)
+            self.is_nonmodel_equality.append(1)
+            self.is_equality.append(1)
         
         # reactive balance
         for busid in self.bus_list:
@@ -186,7 +190,9 @@ class opfSocp():
                 br_a = self.brattr[il]
                 jacidx[cons_counter,self.vidx['iSt'][br_a['idx']]] = 1
             cons_counter += 1
-            self.is_model.append(1)
+            self.is_model.append(0)
+            self.is_nonmodel_equality.append(1)
+            self.is_equality.append(1)
             
         # real from flow
         for _,brid in self.branch_list:
@@ -197,6 +203,7 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['iW'][attr['idx']]] = 1
             cons_counter += 1
             self.is_model.append(1)
+            self.is_equality.append(0)
             
         # imag from flow
         for _,brid in self.branch_list:
@@ -207,6 +214,7 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['iW'][attr['idx']]] = 1
             cons_counter += 1
             self.is_model.append(1)
+            self.is_equality.append(0)
             
         # real to flow
         for _,brid in self.branch_list:
@@ -217,6 +225,7 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['iW'][attr['idx']]] = 1
             cons_counter += 1
             self.is_model.append(1)
+            self.is_equality.append(0)
             
         # imag to flow
         for _,brid in self.branch_list:
@@ -227,6 +236,7 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['iW'][attr['idx']]] = 1
             cons_counter += 1
             self.is_model.append(1)
+            self.is_equality.append(0)
             
         # from flow limits
         for _,brid in self.branch_list:
@@ -235,6 +245,8 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['iSf'][attr['idx']]] = 1
             cons_counter += 1 
             self.is_model.append(0)
+            self.is_nonmodel_equality.append(0)
+            self.is_equality.append(0)
             
         # to flow limits
         for _,brid in self.branch_list:
@@ -243,6 +255,8 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['iSt'][attr['idx']]] = 1
             cons_counter += 1
             self.is_model.append(0)
+            self.is_nonmodel_equality.append(0)
+            self.is_equality.append(0)
             
         # minimum angle limits
         for _,brid in self.branch_list:
@@ -251,6 +265,8 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['rW'][attr['idx']]] = 1
             cons_counter += 1
             self.is_model.append(0)
+            self.is_nonmodel_equality.append(0)
+            self.is_equality.append(0)
             
         # maximum angle limits
         for _,brid in self.branch_list:
@@ -259,6 +275,8 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['iW'][attr['idx']]] = 1
             cons_counter += 1
             self.is_model.append(0)
+            self.is_nonmodel_equality.append(0)
+            self.is_equality.append(0)
             
         # SOCR limits
         for _,brid in self.branch_list:
@@ -268,11 +286,14 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['U'][attr['f']]] = 1
             jacidx[cons_counter,self.vidx['U'][attr['t']]] = 1
             cons_counter += 1
-            self.is_model.append(0)
+            self.is_model.append(1)
+            self.is_equality.append(0)
             
         self.jacidx = np.nonzero(jacidx)
         # self.num_indices_per_constr = np.array(self.num_indices_per_constr)
         self.is_model = np.array(self.is_model)
+        self.is_nonmodel_equality = np.array(self.is_nonmodel_equality)
+        self.is_equality = np.array(self.is_equality)
         
     def jacobianJIT(self):
         
