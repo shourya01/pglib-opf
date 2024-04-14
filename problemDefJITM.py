@@ -148,7 +148,7 @@ class opfSocp():
             
     def saveJacobianStructure(self):
         
-        jacidx = np.zeros(shape=(self.cons_size,self.in_size))
+        jacidx = lil_matrix((self.cons_size,self.in_size))
         self.is_model = []
         self.is_equality = []
         self.is_nonmodel_equality = []

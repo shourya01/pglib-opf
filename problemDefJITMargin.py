@@ -151,7 +151,7 @@ class opfSocpMargin():
             
     def saveJacobianStructure(self):
         
-        jacidx = np.zeros(shape=(self.cons_size,self.in_size))
+        jacidx = lil_matrix((self.cons_size,self.in_size))
         self.is_model = []
         
         # constraint counter
