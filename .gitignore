@@ -1,3 +1,4 @@
 *.pkl
+!allcases.pkl
 __pycache__/
 *.npz
