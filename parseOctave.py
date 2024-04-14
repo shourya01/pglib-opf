@@ -24,7 +24,7 @@ if __name__ == "__main__":
     # current_directory = '/home/sbose/pglib-opf/' # for running on BEBOP
     all_files_and_directories = os.listdir(current_directory)
     # case_files = [os.path.join(current_directory, f) for f in all_files_and_directories if f.endswith('.m') and os.path.isfile(os.path.join(current_directory, f))]
-    case_files = case_files = [current_directory+i for i in ['pglib_opf_case118_ieee.m',"pglib_opf_case10000_goc.m"]] # case specific
+    case_files = case_files = [current_directory+i for i in ['pglib_opf_case118_ieee.m','pglib_opf_case2312_goc.m',"pglib_opf_case4601_goc.m","pglib_opf_case10000_goc.m"]] # case specific
 
     cases, casenames = [], []
     cases_full, casenames_full = [], []
