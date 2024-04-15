@@ -12,9 +12,10 @@ from tqdm import tqdm, trange
 
 octave = Oct2Py()
 MAX_BUS = 10000
-NUM_FILES_FOR_DATA = 23
+NUM_FILES_FOR_DATA = 22
 
-dir_name = 'data/'
+dir_name = 'data2/'
+dir_name_save = 'data/'
 
 if __name__ == "__main__":
 
@@ -23,7 +24,7 @@ if __name__ == "__main__":
     # current_directory = '/home/sbose/pglib-opf/' # for running on BEBOP
     all_files_and_directories = os.listdir(current_directory)
     # three specific cases
-    case_files = [current_directory+i for i in ['pglib_opf_case2312_goc.m',"pglib_opf_case4601_goc.m","pglib_opf_case10000_goc.m"]]
+    case_files = [current_directory+i for i in ['pglib_opf_case118_ieee.m','pglib_opf_case2312_goc.m',"pglib_opf_case4601_goc.m","pglib_opf_case10000_goc.m"]]
 
     cases, casenames = [], []
     cases_full, casenames_full = [], []
@@ -79,13 +80,6 @@ if __name__ == "__main__":
         output_duals = np.array(output_duals)
         output_cost = np.array(output_cost)
         
-        np.savez(os.getcwd()+'/'+dir_name+f'{cn}_inp.npz',data=input)
-        np.savez(os.getcwd()+'/'+dir_name+f'{cn}_dual.npz',data=output_duals)
-        np.savez(os.getcwd()+'/'+dir_name+f'{cn}_costs.npz',data=output_cost)
-                
-
-                
-        
-            
-            
-        
+        np.savez(os.getcwd()+'/'+dir_name_save+f'{cn}_inp.npz',data=input)
+        np.savez(os.getcwd()+'/'+dir_name_save+f'{cn}_dual.npz',data=output_duals)
+        np.savez(os.getcwd()+'/'+dir_name_save+f'{cn}_costs.npz',data=output_cost)

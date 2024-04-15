@@ -12,8 +12,11 @@ from problemDefJITMargin import opfSocpMargin
 from tqdm import tqdm, trange
 import torch
 import torch.nn as nn
+import matplotlib.pyplot as plt
 from ConvexModel import ConvexNet
 from ClassifierModel import ClassifierNet
+from RidgeModel import RidgeNet
+from catboost import CatBoostClassifier
 
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.multioutput import MultiOutputClassifier
@@ -22,6 +25,8 @@ from sklearn.linear_model import RidgeClassifier
 octave = Oct2Py()
 dir_name = 'data/'
 MAX_BUS = 10000
+DUAL_THRES = 1e-4
+WEIGHT_FOR_BINDING_CONSTR = 10000
 
 if __name__ == "__main__":
     
@@ -30,8 +35,8 @@ if __name__ == "__main__":
     # current_directory = '/home/sbose/pglib-opf/' # for running on BEBOP
     all_files_and_directories = os.listdir(current_directory)
     # three specific cases
-    # case_files = [current_directory+i for i in ['pglib_opf_case2312_goc.m',"pglib_opf_case4601_goc.m","pglib_opf_case10000_goc.m"]]
-    case_files = [current_directory+i for i in ['pglib_opf_case2312_goc.m',"pglib_opf_case4601_goc.m"]]
+    case_files = [current_directory+i for i in ['pglib_opf_case118_ieee.m','pglib_opf_case2312_goc.m',"pglib_opf_case4601_goc.m","pglib_opf_case10000_goc.m"]]
+    # case_files = [current_directory+i for i in ['pglib_opf_case2312_goc.m',"pglib_opf_case4601_goc.m"]]
 
     cases, casenames = [], []
     cases_full, casenames_full = [], []
@@ -61,12 +66,12 @@ if __name__ == "__main__":
         # modify the input
         optObj = opfSocp(this_case,cn) # generate object
         
-        inp_list = []
-        for id in range(inp_data.shape[0]):
-            # temporary - insert extra flow limit into existing input data (since the original didn't have that)
-            inp = np.insert(inp_data[id,:],optObj.bus_pd.size+optObj.bus_qd.size+optObj.flow_lim.size,optObj.flow_lim)
-            inp_list.append(inp)
-        inp_data = np.array(inp_list)
+        # inp_list = []
+        # for id in range(inp_data.shape[0]):
+        #     # temporary - insert extra flow limit into existing input data (since the original didn't have that)
+        #     inp = np.insert(inp_data[id,:],optObj.bus_pd.size+optObj.bus_qd.size+optObj.flow_lim.size,optObj.flow_lim)
+        #     inp_list.append(inp)
+        # inp_data = np.array(inp_list)
         
         # load data 
         nn_shape = (inp_data.shape[1],300,150,150,1)
@@ -87,17 +92,19 @@ if __name__ == "__main__":
         inp_data_train = (inp_data_train - inp_min) / (inp_max - inp_min) # preprocess - min-max scaling
         cost_data_train = cost_data[:int(0.8*inp_data.shape[0]),:]
         dual_data_train = dual_data[:int(0.8*inp_data.shape[0]),:]
-        dual_data_train_copy = dual_data_train.copy() # save copy for later
-        preprocess_low = 0
-        preprocess_high = 10000
-        dual_data_train = np.where(np.abs(dual_data_train)<1e-5,preprocess_low,preprocess_high) # preprocess
+        dual_data_train = dual_data_train.copy() # save copy for later
         
         # acquire and preprocess test data
         inp_data_test = inp_data[int(0.8*inp_data.shape[0]):,:]
         inp_data_test = (inp_data_test - inp_min) / (inp_max - inp_min) # preprocess - min-max scaling
         cost_data_test = cost_data[int(0.8*inp_data.shape[0]):,:]
         dual_data_test = dual_data[int(0.8*inp_data.shape[0]):,:]
-        dual_data_test = np.where(np.abs(dual_data_test)<1e-5,0.,1.) # preprocess to easily calculate confusion matrix
+        dual_data_test = np.where(np.abs(dual_data_test)<DUAL_THRES,0.,1.) # preprocess to easily calculate confusion matrix
+        
+        # vector for nonmodel inequalities
+        nmineq = np.ones(2*optObj.n_bus+4*optObj.n_branch)
+        nmineq[:2*optObj.n_bus] = 0
+        nmineq = nmineq.astype(bool)
         
         # carry out training for convex neural net
         first_test_done = False
@@ -105,10 +112,11 @@ if __name__ == "__main__":
             np.random.seed(e)
             random_idx = np.random.choice(inp_data_train.shape[0],BS,replace=False)
             inp_t = torch.FloatTensor(inp_data_train[random_idx,:]).to('cuda')
-            # cost_t = torch.FloatTensor(cost_data_train[random_idx,:]).to('cuda')
+            # cost_t = torch.FloatTensor(cost_data_train[random_idx,:]).to('cuda') 
             grad_t = torch.FloatTensor(dual_data_train[random_idx,:]).to('cuda')
             # loss_cost = F.mse_loss(ConvexModel(inp_t),cost_t,reduction='mean')
-            loss_grad = F.mse_loss(ConvexModel(inp_t),grad_t,reduction='mean')
+            wt = torch.FloatTensor(np.where(np.abs(dual_data_train[random_idx,:])<DUAL_THRES,1,WEIGHT_FOR_BINDING_CONSTR)).to('cuda')
+            loss_grad = F.binary_cross_entropy_with_logits(ConvexModel(inp_t),torch.sigmoid(grad_t),weight=wt)
             # loss = loss_grad
             optimConvex.zero_grad()
             loss_grad.backward()
@@ -117,8 +125,12 @@ if __name__ == "__main__":
             # test
             if e % 250 == 0:
                 out_test = ConvexModel(torch.FloatTensor(inp_data_test).to('cuda')).detach().cpu().numpy()
-                out_test = np.where(out_test<0.5*(preprocess_low+preprocess_high),0,1)
-                tp, tn, fp, fn = out_test*dual_data_test, (1-out_test)*(1-dual_data_test), out_test*(1-dual_data_test), (1-out_test)*(dual_data_test)
+                # out_test = np.where(out_test<0.5*(preprocess_low+preprocess_high),0,1)
+                out_test = np.where(np.abs(out_test)<DUAL_THRES,0,1)
+                tp, tn, fp, fn = out_test[:,nmineq]*dual_data_test[:,nmineq],\
+                    (1-out_test[:,nmineq])*(1-dual_data_test[:,nmineq]),\
+                    out_test[:,nmineq]*(1-dual_data_test[:,nmineq]),\
+                    (1-out_test[:,nmineq])*(dual_data_test[:,nmineq])
                 tp, tn, fp, fn = tp.sum().item(), tn.sum().item(), fp.sum().item(), fn.sum().item()
                 FP.append(fp)
                 TP.append(tp)
@@ -133,12 +145,11 @@ if __name__ == "__main__":
                 t.set_description(f"For case {cn}, method: convex, loss on epoch {e+1} is {losses[-1]:.3f}.")
                 
         # now create classifier
-        dual_data_train_classifier = np.where(np.abs(dual_data_train_copy)<1e-5,0,1)
+        dual_data_train_classifier = np.where(np.abs(dual_data_train)<DUAL_THRES,0,1)
         ClassifierModel = ClassifierNet(nn_shape,activation=nn.LeakyReLU).to('cuda')
         for p in ClassifierModel.parameters():
             p.data.fill_(0.01)
         optimClassifier = torch.optim.Adam(ClassifierModel.parameters(),lr=1e-4,weight_decay=1e-2)
-        epochs = 10000
         losses = []
         FP, FN, TP, TN = [], [], [], []
         
@@ -161,7 +172,10 @@ if __name__ == "__main__":
             if e % 250 == 0:
                 out_test = ClassifierModel(torch.FloatTensor(inp_data_test).to('cuda')).detach().cpu().numpy()
                 out_test = np.where(out_test<0.5,0,1)
-                tp, tn, fp, fn = out_test*dual_data_test, (1-out_test)*(1-dual_data_test), out_test*(1-dual_data_test), (1-out_test)*(dual_data_test)
+                tp, tn, fp, fn = out_test[:,nmineq]*dual_data_test[:,nmineq],\
+                    (1-out_test[:,nmineq])*(1-dual_data_test[:,nmineq]),\
+                    out_test[:,nmineq]*(1-dual_data_test[:,nmineq]),\
+                    (1-out_test[:,nmineq])*(dual_data_test[:,nmineq])
                 tp, tn, fp, fn = tp.sum().item(), tn.sum().item(), fp.sum().item(), fn.sum().item()
                 FP.append(fp)
                 TP.append(tp)
@@ -174,6 +188,79 @@ if __name__ == "__main__":
                 t.set_description(f"For case {cn}, method: classifier, loss on epoch {e+1} is {losses[-1]:.3f}. TP: {tp*100/allv:.3f}, TN: {tn*100/allv:.3f}, FP: {fp*100/allv:.3f}, FN: {fn*100/allv:.3f}.")
             else:
                 t.set_description(f"For case {cn}, method: classifier, loss on epoch {e+1} is {losses[-1]:.3f}.")
+                
+                
+        # now create ridge
+        dual_data_train_ridge = np.where(np.abs(dual_data_train)<DUAL_THRES,-1,1)
+        RidgeModel = RidgeNet(nn_shape[0]).to('cuda')
+        for p in RidgeModel.parameters():
+            p.data.fill_(0.01)
+        optimRidge = torch.optim.Adam(RidgeModel.parameters(),lr=1e-4)
+        epochs = 2000
+        alpha = 1e-3
+        losses = []
+        FP, FN, TP, TN = [], [], [], []
+        
+        # carry out training for classifier neural net
+        first_test_done = False
+        for e in (t:=trange(epochs)):
+            np.random.seed(e)
+            random_idx = np.random.choice(inp_data_train.shape[0],BS,replace=False)
+            inp_t = torch.FloatTensor(inp_data_train[random_idx,:]).to('cuda')
+            # cost_t = torch.FloatTensor(cost_data_train[random_idx,:]).to('cuda')
+            rout_t = torch.FloatTensor(dual_data_train_ridge[random_idx,:]).to('cuda')
+            # loss_cost = F.mse_loss(ConvexModel(inp_t),cost_t,reduction='mean')
+            loss = F.mse_loss(RidgeModel(inp_t),rout_t,reduction='mean')
+            # loss = loss_grad
+            optimRidge.zero_grad()
+            loss.backward()
+            optimRidge.step()
+            losses.append(loss_grad.item())
+            # test
+            if e % 250 == 0:
+                out_test = RidgeModel(torch.FloatTensor(inp_data_test).to('cuda')).detach().cpu().numpy()
+                out_test = np.where(out_test<0,0,1)
+                tp, tn, fp, fn = out_test[:,nmineq]*dual_data_test[:,nmineq],\
+                    (1-out_test[:,nmineq])*(1-dual_data_test[:,nmineq]),\
+                    out_test[:,nmineq]*(1-dual_data_test[:,nmineq]),\
+                    (1-out_test[:,nmineq])*(dual_data_test[:,nmineq])
+                tp, tn, fp, fn = tp.sum().item(), tn.sum().item(), fp.sum().item(), fn.sum().item()
+                FP.append(fp)
+                TP.append(tp)
+                FN.append(fn)
+                TN.append(tn) 
+                first_test_done = True
+            # print
+            if first_test_done:
+                allv = tp + tn + fp + fn
+                t.set_description(f"For case {cn}, method: ridge, loss on epoch {e+1} is {losses[-1]:.3f}. TP: {tp*100/allv:.3f}, TN: {tn*100/allv:.3f}, FP: {fp*100/allv:.3f}, FN: {fn*100/allv:.3f}.")
+            else:
+                t.set_description(f"For case {cn}, method: ridge, loss on epoch {e+1} is {losses[-1]:.3f}.")
+                
+        
+        # now create catboost
+        inp_data_train_CB = inp_data_train.copy()
+        dual_data_train_CB = np.where(np.abs(dual_data_train)<DUAL_THRES,0,1)
+        RidgeModel = RidgeNet(nn_shape[0]).to('cuda')
+        model = CatBoostClassifier(
+            iterations=1000,
+            learning_rate=0.1,
+            depth=6,
+            loss_function='MultiLogloss',
+            task_type='GPU',
+            devices='0:1',  # This specifies which GPU devices to use (e.g., '0:1' for the first GPU)
+            verbose=True,
+            allow_const_target=True
+        )
+        losses = []
+        FP, FN, TP, TN = [], [], [], []
+        
+        # carry out training for classifier neural net
+        model.fit(
+            inp_data_train_CB, dual_data_train_CB,
+            eval_set=(inp_data_test, dual_data_test),
+            verbose=True
+        )
                 
         
         # sklearn ridge

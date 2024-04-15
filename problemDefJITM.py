@@ -203,6 +203,7 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['iW'][attr['idx']]] = 1
             cons_counter += 1
             self.is_model.append(1)
+            self.is_nonmodel_equality.append(0)
             self.is_equality.append(0)
             
         # imag from flow
@@ -214,6 +215,7 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['iW'][attr['idx']]] = 1
             cons_counter += 1
             self.is_model.append(1)
+            self.is_nonmodel_equality.append(0)
             self.is_equality.append(0)
             
         # real to flow
@@ -225,6 +227,7 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['iW'][attr['idx']]] = 1
             cons_counter += 1
             self.is_model.append(1)
+            self.is_nonmodel_equality.append(0)
             self.is_equality.append(0)
             
         # imag to flow
@@ -236,6 +239,7 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['iW'][attr['idx']]] = 1
             cons_counter += 1
             self.is_model.append(1)
+            self.is_nonmodel_equality.append(0)
             self.is_equality.append(0)
             
         # from flow limits
@@ -287,6 +291,7 @@ class opfSocp():
             jacidx[cons_counter,self.vidx['U'][attr['t']]] = 1
             cons_counter += 1
             self.is_model.append(1)
+            self.is_nonmodel_equality.append(0)
             self.is_equality.append(0)
             
         self.jacidx = np.nonzero(jacidx)
