@@ -13,7 +13,7 @@ from utils import make_data_parallel
 from tqdm import tqdm, trange
 import torch
 import torch.nn as nn
-import matplotlib.pyplot as plt
+import gc
 from ConvexModel import ConvexNet
 from ClassifierModel import ClassifierNet
 from RidgeModel import RidgeNet
@@ -76,7 +76,7 @@ if __name__ == "__main__":
         
         # load data 
         nn_shape = (inp_data.shape[1],300,150,150,1)
-        ConvexModel = make_data_parallel(ConvexNet(nn_shape,activation=nn.LeakyReLU).to('cuda'))
+        ConvexModel = make_data_parallel(ConvexNet(nn_shape,activation=nn.LeakyReLU).to('cuda'),optObj.n_bus)
         for p in ConvexModel.parameters():
             p.data.fill_(0.01)
         BS = 32 # batch size
@@ -122,6 +122,9 @@ if __name__ == "__main__":
             optimConvex.zero_grad()
             loss_grad.backward()
             optimConvex.step()
+            del wt
+            del grad_t
+            gc.collect()
             losses.append(loss_grad.item())
             # test
             if e % 250 == 0:
@@ -141,13 +144,15 @@ if __name__ == "__main__":
             # print
             if first_test_done:
                 allv = tp + tn + fp + fn
-                t.set_description(f"For case {cn}, method: convex, loss on epoch {e+1} is {losses[-1]:.3f}. TP: {tp*100/allv:.3f}, TN: {tn*100/allv:.3f}, FP: {fp*100/allv:.3f}, FN: {fn*100/allv:.3f}.")
+                t.set_description(f"For case {cn}, method: convex, loss on epoch {e+1} is {losses[-1]:.5f}. TP: {tp*100/allv:.5f}, TN: {tn*100/allv:.5f}, FP: {fp*100/allv:.5f}, FN: {fn*100/allv:.5f}.")
             else:
-                t.set_description(f"For case {cn}, method: convex, loss on epoch {e+1} is {losses[-1]:.3f}.")
+                t.set_description(f"For case {cn}, method: convex, loss on epoch {e+1} is {losses[-1]:.5f}.")
+        del ConvexModel
+        gc.collect()
                 
         # now create classifier
         dual_data_train_classifier = np.where(np.abs(dual_data_train)<DUAL_THRES,0,1)
-        ClassifierModel = make_data_parallel(ClassifierNet(nn_shape,activation=nn.LeakyReLU).to('cuda'))
+        ClassifierModel = make_data_parallel(ClassifierNet(nn_shape,activation=nn.LeakyReLU).to('cuda'),optObj.n_bus)
         for p in ClassifierModel.parameters():
             p.data.fill_(0.01)
         optimClassifier = torch.optim.Adam(ClassifierModel.parameters(),lr=1e-4,weight_decay=1e-2)
@@ -168,6 +173,9 @@ if __name__ == "__main__":
             optimClassifier.zero_grad()
             loss_grad.backward()
             optimClassifier.step()
+            del inp_t
+            del probs_t
+            gc.collect()
             losses.append(loss_grad.item())
             # test
             if e % 250 == 0:
@@ -186,23 +194,24 @@ if __name__ == "__main__":
             # print
             if first_test_done:
                 allv = tp + tn + fp + fn
-                t.set_description(f"For case {cn}, method: classifier, loss on epoch {e+1} is {losses[-1]:.3f}. TP: {tp*100/allv:.3f}, TN: {tn*100/allv:.3f}, FP: {fp*100/allv:.3f}, FN: {fn*100/allv:.3f}.")
+                t.set_description(f"For case {cn}, method: classifier, loss on epoch {e+1} is {losses[-1]:.5f}. TP: {tp*100/allv:.5f}, TN: {tn*100/allv:.5f}, FP: {fp*100/allv:.5f}, FN: {fn*100/allv:.5f}.")
             else:
-                t.set_description(f"For case {cn}, method: classifier, loss on epoch {e+1} is {losses[-1]:.3f}.")
+                t.set_description(f"For case {cn}, method: classifier, loss on epoch {e+1} is {losses[-1]:.5f}.")
+        del ClassifierModel
+        gc.collect()
                 
                 
         # now create ridge
         dual_data_train_ridge = np.where(np.abs(dual_data_train)<DUAL_THRES,-1,1)
-        RidgeModel = make_data_parallel(RidgeNet(nn_shape[0]).to('cuda'))
+        RidgeModel = make_data_parallel(RidgeNet(nn_shape[0]).to('cuda'),optObj.n_bus)
         for p in RidgeModel.parameters():
             p.data.fill_(0.01)
-        optimRidge = torch.optim.Adam(RidgeModel.parameters(),lr=1e-4)
-        epochs = 5000
         alpha = 1e-3
+        optimRidge = torch.optim.Adam(RidgeModel.parameters(),lr=1e-4, weight_decay=1e-1) 
         losses = []
         FP, FN, TP, TN = [], [], [], []
         
-        # carry out training for classifier neural net
+        # carry out training for ridge neural net
         first_test_done = False
         for e in (t:=trange(epochs)):
             np.random.seed(e)
@@ -216,6 +225,9 @@ if __name__ == "__main__":
             optimRidge.zero_grad()
             loss.backward()
             optimRidge.step()
+            del rout_t
+            del inp_t
+            gc.collect()
             losses.append(loss_grad.item())
             # test
             if e % 250 == 0:
@@ -234,9 +246,11 @@ if __name__ == "__main__":
             # print
             if first_test_done:
                 allv = tp + tn + fp + fn
-                t.set_description(f"For case {cn}, method: ridge, loss on epoch {e+1} is {losses[-1]:.3f}. TP: {tp*100/allv:.3f}, TN: {tn*100/allv:.3f}, FP: {fp*100/allv:.3f}, FN: {fn*100/allv:.3f}.")
+                t.set_description(f"For case {cn}, method: ridge, loss on epoch {e+1} is {losses[-1]:.5f}. TP: {tp*100/allv:.5f}, TN: {tn*100/allv:.5f}, FP: {fp*100/allv:.5f}, FN: {fn*100/allv:.5f}.")
             else:
-                t.set_description(f"For case {cn}, method: ridge, loss on epoch {e+1} is {losses[-1]:.3f}.")
+                t.set_description(f"For case {cn}, method: ridge, loss on epoch {e+1} is {losses[-1]:.5f}.")
+        del RidgeModel
+        gc.collect()
                 
         
         # now create xgboost
@@ -254,13 +268,13 @@ if __name__ == "__main__":
             'objective': 'binary:logistic',
             'eval_metric': 'logloss',  # You can also use 'auc', 'error' (for classification error), etc.
             'device': 'cuda:0',  # This parameter specifies the use of the GPU
-            'learning_rate': 1e-4,
-            'max_depth': 3,
+            'learning_rate': 0.1,
+            'max_depth': 4,
             'min_child_weight': 1,
             'subsample': 0.8,
             'colsample_bytree': 0.8,
         }
-        num_rounds = 25
+        num_rounds = 5
         bst = xgb.train(params, dtrain, num_rounds)
         dpredict = xgb.DMatrix(inp_data_test)  # Features for prediction
         out_test = bst.predict(dpredict)
@@ -270,7 +284,11 @@ if __name__ == "__main__":
                     (1-out_test[:,nmineq])*(dual_data_test[:,nmineq])
         tp, tn, fp, fn = tp.sum().item(), tn.sum().item(), fp.sum().item(), fn.sum().item()
         allv = tp + tn + fp + fn
-        print(f"For case {cn}, method: xgboost, loss on epoch {e+1} is {losses[-1]:.3f}. TP: {tp*100/allv:.3f}, TN: {tn*100/allv:.3f}, FP: {fp*100/allv:.3f}, FN: {fn*100/allv:.3f}.")
+        print(f"For case {cn}, method: xgboost, TP: {tp*100/allv:.5f}, TN: {tn*100/allv:.5f}, FP: {fp*100/allv:.5f}, FN: {fn*100/allv:.5f}.")
+        
+        del dpredict
+        del dtrain
+        gc.collect()
                 
         
         # sklearn ridge
@@ -283,7 +301,7 @@ if __name__ == "__main__":
         # tp, tn, fp, fn = out_test*dual_data_test, (1-out_test)*(1-dual_data_test), out_test*(1-dual_data_test), (1-out_test)*(dual_data_test)
         # tp, tn, fp, fn = tp.sum().item(), tn.sum().item(), fp.sum().item(), fn.sum().item()
         # allv = tp + tn + fp + fn
-        # print(f"For case {cn}, method: ridge, loss is {losses[-1]:.3f}. TP: {tp*100/allv:.3f}, TN: {tn*100/allv:.3f}, FP: {fp*100/allv:.3f}, FN: {fn*100/allv:.3f}.")
+        # print(f"For case {cn}, method: ridge, loss is {losses[-1]:.5f}. TP: {tp*100/allv:.5f}, TN: {tn*100/allv:.5f}, FP: {fp*100/allv:.5f}, FN: {fn*100/allv:.5f}.")
         
         
         # # sklearn decisiontree
@@ -296,4 +314,4 @@ if __name__ == "__main__":
         # tp, tn, fp, fn = out_test*dual_data_test, (1-out_test)*(1-dual_data_test), out_test*(1-dual_data_test), (1-out_test)*(dual_data_test)
         # tp, tn, fp, fn = tp.sum().item(), tn.sum().item(), fp.sum().item(), fn.sum().item()
         # allv = tp + tn + fp + fn
-        # print(f"For case {cn}, method: decision tree, loss is {losses[-1]:.3f}. TP: {tp*100/allv:.3f}, TN: {tn*100/allv:.3f}, FP: {fp*100/allv:.3f}, FN: {fn*100/allv:.3f}.")
+        # print(f"For case {cn}, method: decision tree, loss is {losses[-1]:.5f}. TP: {tp*100/allv:.5f}, TN: {tn*100/allv:.5f}, FP: {fp*100/allv:.5f}, FN: {fn*100/allv:.5f}.")
