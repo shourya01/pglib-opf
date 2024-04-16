@@ -294,7 +294,7 @@ class opfSocp():
             self.is_nonmodel_equality.append(0)
             self.is_equality.append(0)
             
-        self.jacidx = np.nonzero(jacidx)
+        self.jacidx = jacidx.nonzero()
         # self.num_indices_per_constr = np.array(self.num_indices_per_constr)
         self.is_model = np.array(self.is_model)
         self.is_nonmodel_equality = np.array(self.is_nonmodel_equality)

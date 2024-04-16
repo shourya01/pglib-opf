@@ -9,6 +9,7 @@ from pypower.ext2int import ext2int
 from pypower.api import loadcase
 from problemDefJITM import opfSocp
 from problemDefJITMargin import opfSocpMargin
+from utils import make_data_parallel
 from tqdm import tqdm, trange
 import torch
 import torch.nn as nn
@@ -16,7 +17,7 @@ import matplotlib.pyplot as plt
 from ConvexModel import ConvexNet
 from ClassifierModel import ClassifierNet
 from RidgeModel import RidgeNet
-from catboost import CatBoostClassifier
+import xgboost as xgb
 
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.multioutput import MultiOutputClassifier
@@ -75,7 +76,7 @@ if __name__ == "__main__":
         
         # load data 
         nn_shape = (inp_data.shape[1],300,150,150,1)
-        ConvexModel = ConvexNet(nn_shape,activation=nn.LeakyReLU).to('cuda')
+        ConvexModel = make_data_parallel(ConvexNet(nn_shape,activation=nn.LeakyReLU).to('cuda'))
         for p in ConvexModel.parameters():
             p.data.fill_(0.01)
         BS = 32 # batch size
@@ -146,7 +147,7 @@ if __name__ == "__main__":
                 
         # now create classifier
         dual_data_train_classifier = np.where(np.abs(dual_data_train)<DUAL_THRES,0,1)
-        ClassifierModel = ClassifierNet(nn_shape,activation=nn.LeakyReLU).to('cuda')
+        ClassifierModel = make_data_parallel(ClassifierNet(nn_shape,activation=nn.LeakyReLU).to('cuda'))
         for p in ClassifierModel.parameters():
             p.data.fill_(0.01)
         optimClassifier = torch.optim.Adam(ClassifierModel.parameters(),lr=1e-4,weight_decay=1e-2)
@@ -192,11 +193,11 @@ if __name__ == "__main__":
                 
         # now create ridge
         dual_data_train_ridge = np.where(np.abs(dual_data_train)<DUAL_THRES,-1,1)
-        RidgeModel = RidgeNet(nn_shape[0]).to('cuda')
+        RidgeModel = make_data_parallel(RidgeNet(nn_shape[0]).to('cuda'))
         for p in RidgeModel.parameters():
             p.data.fill_(0.01)
         optimRidge = torch.optim.Adam(RidgeModel.parameters(),lr=1e-4)
-        epochs = 2000
+        epochs = 5000
         alpha = 1e-3
         losses = []
         FP, FN, TP, TN = [], [], [], []
@@ -238,29 +239,38 @@ if __name__ == "__main__":
                 t.set_description(f"For case {cn}, method: ridge, loss on epoch {e+1} is {losses[-1]:.3f}.")
                 
         
-        # now create catboost
-        inp_data_train_CB = inp_data_train.copy()
-        dual_data_train_CB = np.where(np.abs(dual_data_train)<DUAL_THRES,0,1)
-        RidgeModel = RidgeNet(nn_shape[0]).to('cuda')
-        model = CatBoostClassifier(
-            iterations=1000,
-            learning_rate=0.1,
-            depth=6,
-            loss_function='MultiLogloss',
-            task_type='GPU',
-            devices='0:1',  # This specifies which GPU devices to use (e.g., '0:1' for the first GPU)
-            verbose=True,
-            allow_const_target=True
-        )
-        losses = []
-        FP, FN, TP, TN = [], [], [], []
-        
-        # carry out training for classifier neural net
-        model.fit(
-            inp_data_train_CB, dual_data_train_CB,
-            eval_set=(inp_data_test, dual_data_test),
-            verbose=True
-        )
+        # now create xgboost
+        inp_data_train_XGB = inp_data_train.copy()
+        dual_data_train_XGB = np.where(np.abs(dual_data_train)<DUAL_THRES,0,1)
+        dtrain = xgb.DMatrix(inp_data_train_XGB, label=dual_data_train_XGB)
+        # # if all values in column are equal, flip the last element
+        # diff = np.diff(dual_data_train_CB, axis=0)
+        # constant_columns = np.all(diff == 0, axis=0)
+        # variable_column_indices = np.where(~constant_columns)[0]
+        # for colidx in variable_column_indices:
+        #     dual_data_train_CB[-1,colidx] = 1 - dual_data_train_CB[-2,colidx]
+        # define model
+        params = {
+            'objective': 'binary:logistic',
+            'eval_metric': 'logloss',  # You can also use 'auc', 'error' (for classification error), etc.
+            'device': 'cuda:0',  # This parameter specifies the use of the GPU
+            'learning_rate': 1e-4,
+            'max_depth': 3,
+            'min_child_weight': 1,
+            'subsample': 0.8,
+            'colsample_bytree': 0.8,
+        }
+        num_rounds = 25
+        bst = xgb.train(params, dtrain, num_rounds)
+        dpredict = xgb.DMatrix(inp_data_test)  # Features for prediction
+        out_test = bst.predict(dpredict)
+        tp, tn, fp, fn = out_test[:,nmineq]*dual_data_test[:,nmineq],\
+                    (1-out_test[:,nmineq])*(1-dual_data_test[:,nmineq]),\
+                    out_test[:,nmineq]*(1-dual_data_test[:,nmineq]),\
+                    (1-out_test[:,nmineq])*(dual_data_test[:,nmineq])
+        tp, tn, fp, fn = tp.sum().item(), tn.sum().item(), fp.sum().item(), fn.sum().item()
+        allv = tp + tn + fp + fn
+        print(f"For case {cn}, method: xgboost, loss on epoch {e+1} is {losses[-1]:.3f}. TP: {tp*100/allv:.3f}, TN: {tn*100/allv:.3f}, FP: {fp*100/allv:.3f}, FN: {fn*100/allv:.3f}.")
                 
         
         # sklearn ridge
