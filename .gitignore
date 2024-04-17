@@ -2,3 +2,5 @@
 !allcases.pkl
 __pycache__/
 *.npz
+*.pth
+core.*

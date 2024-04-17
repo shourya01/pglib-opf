@@ -68,7 +68,9 @@ if __name__ == "__main__":
                 data = pickle.load(file)
             for dat in data:
                 # save input
-                input.append(np.concatenate([v for _,v in dat[0].items()]))
+                lst = [v for _,v in dat[0].items()]
+                lst = [np.zeros_like(itm) if idx>=2 else itm for idx,itm in enumerate(lst)]
+                input.append(np.concatenate(lst))
                 # convert duals to negative and save
                 dual = dat[1]['mult_g'][np.concatenate([optObj.cidx[consn] for consn in ['balance_real','balance_reac','flow_f','flow_t','angmin','angmax']])]
                 # dual = np.where(dual<0,dual,-dual)
