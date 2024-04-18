@@ -124,7 +124,6 @@ if __name__ == "__main__":
             optimConvex.step()
             del wt
             del grad_t
-            gc.collect()
             losses.append(loss_grad.item())
             # test
             if e % 250 == 0:
@@ -175,7 +174,6 @@ if __name__ == "__main__":
             optimClassifier.step()
             del inp_t
             del probs_t
-            gc.collect()
             losses.append(loss_grad.item())
             # test
             if e % 250 == 0:
@@ -211,7 +209,7 @@ if __name__ == "__main__":
         losses = []
         FP, FN, TP, TN = [], [], [], []
         
-        # carry out training for ridge neural net
+        # carry out training for classifier neural net
         first_test_done = False
         for e in (t:=trange(epochs)):
             np.random.seed(e)
@@ -227,7 +225,6 @@ if __name__ == "__main__":
             optimRidge.step()
             del rout_t
             del inp_t
-            gc.collect()
             losses.append(loss_grad.item())
             # test
             if e % 250 == 0:
