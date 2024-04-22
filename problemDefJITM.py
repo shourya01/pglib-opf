@@ -204,7 +204,7 @@ class opfSocp():
             cons_counter += 1
             self.is_model.append(1)
             self.is_nonmodel_equality.append(0)
-            self.is_equality.append(0)
+            self.is_equality.append(1)
             
         # imag from flow
         for _,brid in self.branch_list:
@@ -216,7 +216,7 @@ class opfSocp():
             cons_counter += 1
             self.is_model.append(1)
             self.is_nonmodel_equality.append(0)
-            self.is_equality.append(0)
+            self.is_equality.append(1)
             
         # real to flow
         for _,brid in self.branch_list:
@@ -228,7 +228,7 @@ class opfSocp():
             cons_counter += 1
             self.is_model.append(1)
             self.is_nonmodel_equality.append(0)
-            self.is_equality.append(0)
+            self.is_equality.append(1)
             
         # imag to flow
         for _,brid in self.branch_list:
@@ -240,7 +240,7 @@ class opfSocp():
             cons_counter += 1
             self.is_model.append(1)
             self.is_nonmodel_equality.append(0)
-            self.is_equality.append(0)
+            self.is_equality.append(1)
             
         # from flow limits
         for _,brid in self.branch_list:
