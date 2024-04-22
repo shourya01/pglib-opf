@@ -17,7 +17,7 @@ warnings.simplefilter("ignore", np.ComplexWarning)
 
 # user options 
 MAX_BUS = 10000 # upper limit of number of buses in cases to be considered
-NUM_POINTS = 10000 # number of data points to save
+NUM_POINTS = 5000 # number of data points to save
 
 # main
 
@@ -68,65 +68,65 @@ if __name__ == "__main__":
     # solve
     for cn,this_case in zip(casenames,cases):
         
-        # generate upper bound of power demand margin
-        optObj = opfSocpMargin(this_case,cn,margin_sense=1)
-        cub, clb = optObj.calc_cons_bounds()
-        xub, xlb = optObj.calc_var_bounds()
-        # Define IPOPT problem
-        probMargin = cyipopt.Problem(
-            n = optObj.in_size,
-            m = optObj.cons_size,
-            problem_obj=optObj,
-            lb=xlb,
-            ub=xub,
-            cl=clb,
-            cu=cub
-        )
-        # Setup solver options
-        probMargin.add_option('tol',1e-6)
-        probMargin.add_option('max_iter',2500)
-        probMargin.add_option('mumps_mem_percent',25000)
-        probMargin.add_option('mu_max',1e-0)
-        probMargin.add_option('mu_init',1e-0)
-        # probMargin.add_option('nlp_lower_bound_inf',-optObj.LARGE_NUMBER+1)
-        # probMargin.add_option('nlp_upper_bound_inf',optObj.LARGE_NUMBER-1)
-        # solve
-        x, info = probMargin.solve(optObj.calc_x0_flatstart())  
-        maxMarginPd = x[optObj.vidx['mPd']]
-        maxMarginQd = x[optObj.vidx['mQd']]
+        # # generate upper bound of power demand margin
+        # optObj = opfSocpMargin(this_case,cn,margin_sense=1)
+        # cub, clb = optObj.calc_cons_bounds()
+        # xub, xlb = optObj.calc_var_bounds()
+        # # Define IPOPT problem
+        # probMargin = cyipopt.Problem(
+        #     n = optObj.in_size,
+        #     m = optObj.cons_size,
+        #     problem_obj=optObj,
+        #     lb=xlb,
+        #     ub=xub,
+        #     cl=clb,
+        #     cu=cub
+        # )
+        # # Setup solver options
+        # probMargin.add_option('tol',1e-6)
+        # probMargin.add_option('max_iter',2500)
+        # probMargin.add_option('mumps_mem_percent',25000)
+        # probMargin.add_option('mu_max',1e-0)
+        # probMargin.add_option('mu_init',1e-0)
+        # # probMargin.add_option('nlp_lower_bound_inf',-optObj.LARGE_NUMBER+1)
+        # # probMargin.add_option('nlp_upper_bound_inf',optObj.LARGE_NUMBER-1)
+        # # solve
+        # x, info = probMargin.solve(optObj.calc_x0_flatstart())  
+        # maxMarginPd = x[optObj.vidx['mPd']]
+        # maxMarginQd = x[optObj.vidx['mQd']]
         
-        # generate lower bound of power demand margin
-        optObj = opfSocpMargin(this_case,cn,margin_sense=-1)
-        cub, clb = optObj.calc_cons_bounds()
-        xub, xlb = optObj.calc_var_bounds()
-        # Define IPOPT problem
-        probMargin = cyipopt.Problem(
-            n = optObj.in_size,
-            m = optObj.cons_size,
-            problem_obj=optObj,
-            lb=xlb,
-            ub=xub,
-            cl=clb,
-            cu=cub
-        )
-        # Setup solver options
-        probMargin.add_option('tol',1e-6)
-        probMargin.add_option('max_iter',2500)
-        probMargin.add_option('mumps_mem_percent',25000)
-        probMargin.add_option('mu_max',1e-0)
-        probMargin.add_option('mu_init',1e-0)
-        # probMargin.add_option('nlp_lower_bound_inf',-optObj.LARGE_NUMBER+1)
-        # probMargin.add_option('nlp_upper_bound_inf',optObj.LARGE_NUMBER-1)
-        # solve
-        x, info = probMargin.solve(optObj.calc_x0_flatstart())  
-        minMarginPd = x[optObj.vidx['mPd']]
-        minMarginQd = x[optObj.vidx['mQd']]
+        # # generate lower bound of power demand margin
+        # optObj = opfSocpMargin(this_case,cn,margin_sense=-1)
+        # cub, clb = optObj.calc_cons_bounds()
+        # xub, xlb = optObj.calc_var_bounds()
+        # # Define IPOPT problem
+        # probMargin = cyipopt.Problem(
+        #     n = optObj.in_size,
+        #     m = optObj.cons_size,
+        #     problem_obj=optObj,
+        #     lb=xlb,
+        #     ub=xub,
+        #     cl=clb,
+        #     cu=cub
+        # )
+        # # Setup solver options
+        # probMargin.add_option('tol',1e-6)
+        # probMargin.add_option('max_iter',2500)
+        # probMargin.add_option('mumps_mem_percent',25000)
+        # probMargin.add_option('mu_max',1e-0)
+        # probMargin.add_option('mu_init',1e-0)
+        # # probMargin.add_option('nlp_lower_bound_inf',-optObj.LARGE_NUMBER+1)
+        # # probMargin.add_option('nlp_upper_bound_inf',optObj.LARGE_NUMBER-1)
+        # # solve
+        # x, info = probMargin.solve(optObj.calc_x0_flatstart())  
+        # minMarginPd = x[optObj.vidx['mPd']]
+        # minMarginQd = x[optObj.vidx['mQd']]
         
-        # filter the min/max
-        # maxMarginPd = np.minimum(_minMarginPd,_maxMarginPd)
-        # minMarginPd = maxMarginPd
-        # maxMarginQd = np.minimum(_minMarginQd,_maxMarginQd)
-        # minMarginQd = maxMarginQd
+        # # filter the min/max
+        # # maxMarginPd = np.minimum(_minMarginPd,_maxMarginPd)
+        # # minMarginPd = maxMarginPd
+        # # maxMarginQd = np.minimum(_minMarginQd,_maxMarginQd)
+        # # minMarginQd = maxMarginQd
         
         # solve base problem
         # print(f"\n--------\nSolving {cn}.\n--------\n",flush=True)
@@ -175,10 +175,8 @@ if __name__ == "__main__":
             
             # get pd, qd and perturb
             pd,qd = optObj.get_loads()
-            pd_up, pd_down = pd + maxMarginPd, pd - minMarginPd
-            qd_up, qd_down = qd + maxMarginQd, qd - minMarginQd
             
-            dpd,dqd = pd_down + np.random.rand(*pd.shape)*(pd_up-pd_down), qd_down + np.random.rand(*qd.shape)*(qd_up-qd_down)
+            dpd,dqd = (0.9 + np.random.rand(*pd.shape)*0.2)*pd, (0.9 + np.random.rand(*qd.shape)*0.2)*qd
             optObj.change_loads(dpd,dqd)
             
             # generate input dicts
@@ -186,10 +184,11 @@ if __name__ == "__main__":
             
             # solve problem
             _, info = prob.solve(info_base['x'],lagrange=info_base['mult_g'].tolist(),zl=info_base['mult_x_L'].tolist(),zu=info_base['mult_x_U'].tolist())
-            data.append((input_data,info))
+            if info['status'] == 0:
+                data.append((input_data,info))
             
             # output status
-            t.set_description(f"Status of point {pt_idx} is {info['status']} : {info['status_msg']}. Process ({mpi_rank}/{mpi_size}).")
+            t.set_description(f"Status of point {pt_idx} is {info['status']}. Process ({mpi_rank}/{mpi_size}).")
             
         # save data
         with open(os.getcwd()+f'/data2/{cn}_data_rank_{mpi_rank}.pkl','wb') as file:
