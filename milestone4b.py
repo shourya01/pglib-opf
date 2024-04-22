@@ -18,6 +18,7 @@ warnings.simplefilter("ignore", np.ComplexWarning)
 # user options 
 MAX_BUS = 10000 # upper limit of number of buses in cases to be considered
 NUM_POINTS = 5000 # number of data points to save
+DIFF = 0.2 # ratio variation of data
 
 # main
 
@@ -167,7 +168,7 @@ if __name__ == "__main__":
         prob.add_option('max_iter',1000)
         
         # generate points
-        data = []
+        input, duals = [], []
         for pt_idx in (t:=trange(NUM_POINTS)):
             
             # set random seed
@@ -176,16 +177,16 @@ if __name__ == "__main__":
             # get pd, qd and perturb
             pd,qd = optObj.get_loads()
             
-            dpd,dqd = (0.9 + np.random.rand(*pd.shape)*0.2)*pd, (0.9 + np.random.rand(*qd.shape)*0.2)*qd
+            dpd,dqd = (1-DIFF + np.random.rand(*pd.shape)*DIFF)*pd, (1-DIFF + np.random.rand(*qd.shape)*DIFF)*qd
             optObj.change_loads(dpd,dqd)
-            
-            # generate input dicts
-            input_data = {'pd':dpd,'qd':dqd,'flow_lim_f':optObj.flow_lim,'flow_lim_t':optObj.flow_lim,'angmin':optObj.angmin,'angmax':optObj.angmax}
-            
+
             # solve problem
             _, info = prob.solve(info_base['x'],lagrange=info_base['mult_g'].tolist(),zl=info_base['mult_x_L'].tolist(),zu=info_base['mult_x_U'].tolist())
             if info['status'] == 0:
-                data.append((input_data,info))
+                input_data = {'pd':dpd,'qd':dqd,'flow_lim_f':np.zeros_like(optObj.flow_lim),'flow_lim_t':np.zeros_like(optObj.flow_lim),'angmin':np.zeros_like(optObj.angmin),'angmax':np.zeros_like(optObj.angmax)}
+                input.append(np.concatenate([itm[1] for itm in input_data.items()],axis=0))
+                dual = info['mult_g'][np.concatenate([optObj.cidx[consn] for consn in ['balance_real','balance_reac','flow_f','flow_t','angmin','angmax']])]
+                duals.append(dual)
             
             # output status
             t.set_description(f"Status of point {pt_idx} is {info['status']}. Process ({mpi_rank}/{mpi_size}).")
@@ -193,3 +194,6 @@ if __name__ == "__main__":
         # save data
         with open(os.getcwd()+f'/data2/{cn}_data_rank_{mpi_rank}.pkl','wb') as file:
             pickle.dump(data,file)
+        if len(input_data) > 0:
+            np.savez_compressed(os.getcwd()+f'/data2/{cn}_inp_{mpi_rank}.npz',data=np.array(input))
+            np.savez_compressed(os.getcwd()+f'/data2/{cn}_dual_{mpi_rank}.npz',data=np.array(duals))
