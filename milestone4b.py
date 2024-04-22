@@ -88,12 +88,12 @@ if __name__ == "__main__":
         probMargin.add_option('mumps_mem_percent',25000)
         probMargin.add_option('mu_max',1e-0)
         probMargin.add_option('mu_init',1e-0)
-        probMargin.add_option('nlp_lower_bound_inf',-optObj.LARGE_NUMBER+1)
-        probMargin.add_option('nlp_upper_bound_inf',optObj.LARGE_NUMBER-1)
+        # probMargin.add_option('nlp_lower_bound_inf',-optObj.LARGE_NUMBER+1)
+        # probMargin.add_option('nlp_upper_bound_inf',optObj.LARGE_NUMBER-1)
         # solve
         x, info = probMargin.solve(optObj.calc_x0_flatstart())  
-        _maxMarginPd = x[optObj.vidx['mPd']]
-        _maxMarginQd = x[optObj.vidx['mQd']]
+        maxMarginPd = x[optObj.vidx['mPd']]
+        maxMarginQd = x[optObj.vidx['mQd']]
         
         # generate lower bound of power demand margin
         optObj = opfSocpMargin(this_case,cn,margin_sense=-1)
@@ -115,18 +115,18 @@ if __name__ == "__main__":
         probMargin.add_option('mumps_mem_percent',25000)
         probMargin.add_option('mu_max',1e-0)
         probMargin.add_option('mu_init',1e-0)
-        probMargin.add_option('nlp_lower_bound_inf',-optObj.LARGE_NUMBER+1)
-        probMargin.add_option('nlp_upper_bound_inf',optObj.LARGE_NUMBER-1)
+        # probMargin.add_option('nlp_lower_bound_inf',-optObj.LARGE_NUMBER+1)
+        # probMargin.add_option('nlp_upper_bound_inf',optObj.LARGE_NUMBER-1)
         # solve
         x, info = probMargin.solve(optObj.calc_x0_flatstart())  
-        _minMarginPd = x[optObj.vidx['mPd']]
-        _minMarginQd = x[optObj.vidx['mQd']]
+        minMarginPd = x[optObj.vidx['mPd']]
+        minMarginQd = x[optObj.vidx['mQd']]
         
         # filter the min/max
-        maxMarginPd = np.minimum(_minMarginPd,_maxMarginPd)
-        minMarginPd = maxMarginPd
-        maxMarginQd = np.minimum(_minMarginQd,_maxMarginQd)
-        minMarginQd = maxMarginQd
+        # maxMarginPd = np.minimum(_minMarginPd,_maxMarginPd)
+        # minMarginPd = maxMarginPd
+        # maxMarginQd = np.minimum(_minMarginQd,_maxMarginQd)
+        # minMarginQd = maxMarginQd
         
         # solve base problem
         # print(f"\n--------\nSolving {cn}.\n--------\n",flush=True)
