@@ -35,7 +35,8 @@ if __name__ == "__main__":
     # current_directory = '/home/sbose/pglib-opf/' # for running on BEBOP
     all_files_and_directories = os.listdir(current_directory)
     # three specific cases
-    todo_cases =  ['pglib_opf_case118_ieee',"pglib_opf_case10000_goc"]
+    # todo_cases =  ['pglib_opf_case118_ieee',"pglib_opf_case10000_goc"]
+    todo_cases = ['pglib_opf_case2312_goc',"pglib_opf_case4601_goc"]
     
     with open(os.getcwd()+'/allcases.pkl','rb') as file:
         data = pickle.load(file)
