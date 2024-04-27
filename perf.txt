@@ -12,4 +12,5 @@ For case pglib_opf_case4601_goc, method: ridge. TP: 0.00695, TN: 99.99225, FP: 0
 For case pglib_opf_case4601_goc, method: xgboost. TP: 0.00433, TN: 84.22242, FP: 15.76982, FN: 0.00342.
 For case pglib_opf_case10000_goc, method: convex. TP: 0.20055, TN: 99.72707, FP: 0.07233, FN: 0.00005.
 For case pglib_opf_case10000_goc, method: classifier. TP: 0.19581, TN: 99.79435, FP: 0.00505, FN: 0.00479.
-For case pglib_opf_case10000_goc, method: ridge. TP: 0.19430, TN: 99.79662, FP: 0.00278, FN: 0.00630.
+For case pglib_opf_case10000_goc, method: ridge. TP: 0.19430, TN: 99.79662, FP: 0.00278, FN: 0.00630.For case pglib_opf_case10000_goc, method: convex. TP: 0.20055, TN: 99.72707, FP: 0.07233, FN: 0.00005.
+For case pglib_opf_case10000_goc, method: classifier. TP: 0.19581, TN: 99.79435, FP: 0.00505, FN: 0.00479.

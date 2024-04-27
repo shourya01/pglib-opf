@@ -8,6 +8,7 @@ from tqdm import trange
 from pypower.ext2int import ext2int
 from pypower.api import loadcase
 from problemDefJITM import opfSocp
+from problemDefJITR import opfSocpR
 from problemDefJITMargin import opfSocpMargin
 from utils import make_data_parallel
 from tqdm import tqdm, trange
@@ -58,140 +59,120 @@ if __name__ == "__main__":
             cases.append(case_correct_idx)
             casenames.append(cname)
             
+    # define kwargs
+    problem_settings_kwargs = lambda obj:{
+        'tol':1e-6,
+        'mu_max':1e-0,
+        'mu_init':1e-0,
+        'nlp_lower_bound_inf':-obj.LARGE_NUMBER+1,
+        'nlp_upper_bound_inf':obj.LARGE_NUMBER-1,
+        'print_level':0
+    }
+    problem_def_kwargs = lambda obj,var_ub,var_lb,cons_ub,cons_lb: {
+        'n':var_lb.size,
+        'm':cons_lb.size,
+        'problem_obj':obj,
+        'lb':var_lb,
+        'ub':var_ub,
+        'cl':cons_lb,
+        'cu':cons_ub
+    }
+            
     for cn,this_case in zip(casenames,cases):
     
         inp_data = np.load(os.getcwd()+'/'+dir_name+f'{cn}_inp.npz')['data']
         dual_data = np.load(os.getcwd()+'/'+dir_name+f'{cn}_dual.npz')['data']
-        cost_data = np.load(os.getcwd()+'/'+dir_name+f'{cn}_costs.npz')['data'][:,None]
         
         # modify the input
         optObj = opfSocp(this_case,cn) # generate object
         
+        # do full unperturbed solve
+        optObj = opfSocp(this_case,cn)
+        pdk, psk = problem_def_kwargs(optObj,*optObj.calc_var_bounds(),*optObj.calc_cons_bounds()), problem_settings_kwargs(optObj)
+        prob = cyipopt.Problem(**pdk)
+        for k,v in psk.items():
+            prob.add_option(k,v)
+        start = time()
+        xorig, infoorig = prob.solve(optObj.calc_x0_flatstart())
+        end = time()
+        obj_orig, status = infoorig['obj_val'], infoorig['status']
+        print(f"-----\nUnperturbed full problem solved in {(end-start):.5f}s with objective {obj_orig} and status {status}.\n-----\n\n")
         
+        # input data for different methods
+        convex_out = np.load(os.getcwd()+f'/saved/{cn}_out_convex.npz')['data'] # convex
         
-        # import data
-        inp_data = np.load(os.getcwd()+f'/saved/{cn}_test_inp.npz')['data']
+        # set up relevant indices for reduced solves
+        ineqidx = ((1-optObj.is_model)*(1-optObj.is_equality)).astype(bool) # nonmodel inequalities
+        nmineq = np.ones(2*optObj.n_bus+4*optObj.n_branch)
+        nmineq[:2*optObj.n_bus] = 0
+        nmineq = nmineq.astype(bool).tolist()
         
-        # solve for convex
-        convex_out = np.load(os.getcwd()+f'/saved/{cn}_out_convex.npz')['data'][:NUM_SOLVES,:]
-        times, solves = [], []
+        full_times, times, solves = [], [], []
+        optObj = opfSocp(this_case,cn)
+        cub, _ = optObj.calc_cons_bounds() # only for inferring violations
+        
         for sidx in range(NUM_SOLVES):
             
-            # time and solve original problem
-            optObj = opfSocp(this_case,cn)
+            # CONVEX
+            
+            # extract input and dual data and create reduced solve obj
             pd,qd = inp_data[sidx,:optObj.n_bus], inp_data[sidx,optObj.n_bus:2*(optObj.n_bus)]
+            convex_marker = convex_out[sidx,:][nmineq]
+            
+            # do full perturbed solve
             optObj.change_loads(pd,qd)
-            cub, clb = optObj.calc_cons_bounds()
-            xub, xlb = optObj.calc_var_bounds()
-            
-            # time variable for original
-            time_orig = 0.
-            
-            # Define IPOPT problem
-            prob = cyipopt.Problem(
-                n = optObj.in_size,
-                m = optObj.cons_size,
-                problem_obj=optObj,
-                lb=xlb,
-                ub=xub,
-                cl=clb,
-                cu=cub
-            )
-            
-            # Setup solver options
-            prob.add_option('tol',1e-6)
-            prob.add_option('max_iter',2500)
-            prob.add_option('mumps_mem_percent',25000)
-            prob.add_option('mu_max',1e-0)
-            prob.add_option('mu_init',1e-0)
-            prob.add_option('nlp_lower_bound_inf',-optObj.LARGE_NUMBER+1)
-            prob.add_option('nlp_upper_bound_inf',optObj.LARGE_NUMBER-1)
-            prob.add_option('print_level',0) 
-            
+            pdk, psk = problem_def_kwargs(optObj,*optObj.calc_var_bounds(),*optObj.calc_cons_bounds()), problem_settings_kwargs(optObj)
+            prob = cyipopt.Problem(**pdk)
+            for k,v in psk.items():
+                prob.add_option(k,v)
             start = time()
-            x,info = prob.solve(optObj.calc_x0_flatstart())
+            xorig, infoorig = prob.solve(optObj.calc_x0_flatstart())
             end = time()
+            obj_orig, status = infoorig['obj_val'], infoorig['status']
+            print(f"Perturbed full problem solved in {(end-start):.5f}s with objective {obj_orig} and status {status}.")
+            full_times.append(end-start)
             
-            orig = end-start
-            val = info['obj_val']
-            print(f'Solved original problem for {cn} in {orig}s, objective value is {val}.')
-            
-            # solve modified prob - set up indices
-            ineqidx = ((1-optObj.is_model)*(1-optObj.is_equality)).astype(bool) # nonmodel inequalities
-            nmineq = np.ones(2*optObj.n_bus+4*optObj.n_branch)
-            nmineq[:2*optObj.n_bus] = 0
-            nmineq = nmineq.astype(bool)
-            
-            
-            this_time, this_solve = 0,0
-            marker = convex_out[sidx,:]
-            clnew, cunew = clb,cub
-            clnew[ineqidx] = np.where(marker[nmineq]==0,-optObj.LARGE_NUMBER,clb[ineqidx])
-            cunew[ineqidx] = np.where(marker[nmineq]==0,optObj.LARGE_NUMBER,cub[ineqidx])
-            prob = cyipopt.Problem(
-                n = optObj.in_size,
-                m = optObj.cons_size,
-                problem_obj=optObj,
-                lb=xlb,
-                ub=xub,
-                cl=clnew,
-                cu=cunew
-            )
-            # Setup solver options
-            prob.add_option('tol',1e-6)
-            prob.add_option('max_iter',2500)
-            prob.add_option('mumps_mem_percent',25000)
-            prob.add_option('mu_max',1e-1)
-            prob.add_option('mu_init',1e-1)
-            prob.add_option('nlp_lower_bound_inf',-optObj.LARGE_NUMBER+1)
-            prob.add_option('nlp_upper_bound_inf',optObj.LARGE_NUMBER-1)
-            prob.add_option('print_level',0) 
+            # calculate first solve for convex
+            optObjR = opfSocpR(this_case,convex_marker,cn)
+            optObjR.change_loads(pd,qd)
+            pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs(optObjR)
+            prob = cyipopt.Problem(**pdk)
+            for k,v in psk.items():
+                prob.add_option(k,v)
             start = time()
-            x, info = prob.solve(optObj.calc_x0_flatstart())
+            xcofirst, infocofirst = prob.solve(optObjR.calc_x0_flatstart())
+            obj_cofirst = infocofirst['obj_val']
             end = time()
-            this_time += end-start
-            this_solve += 1
-            # infer constraints
-            inferred_cons = (optObj.constraints(x)-cub).clip(min=0)[ineqidx]
-            val = info['obj_val']
-            print(f'First solve objective is {val}, {np.where(np.abs(inferred_cons)>1e-3,1,0).sum()} violated cons.')
-            if np.where(np.abs(inferred_cons)>1e-4,1,0).sum() > 0:
-                marker[nmineq] = np.where(np.abs(inferred_cons)>1e-4,0,inferred_cons)
-                # resolve
-                clnew, cunew = clb,cub
-                clnew[ineqidx] = np.where(marker[nmineq]==0,-optObj.LARGE_NUMBER,clb[ineqidx])
-                cunew[ineqidx] = np.where(marker[nmineq]==0,optObj.LARGE_NUMBER,cub[ineqidx])
-                prob = cyipopt.Problem(
-                    n = optObj.in_size,
-                    m = optObj.cons_size,
-                    problem_obj=optObj,
-                    lb=xlb,
-                    ub=xub,
-                    cl=clnew,
-                    cu=cunew
-                )
-                # Setup solver options
-                prob.add_option('tol',1e-6)
-                prob.add_option('max_iter',2500)
-                prob.add_option('mumps_mem_percent',25000)
-                prob.add_option('mu_max',1e-1)
-                prob.add_option('mu_init',1e-1)
-                prob.add_option('nlp_lower_bound_inf',-optObj.LARGE_NUMBER+1)
-                prob.add_option('nlp_upper_bound_inf',optObj.LARGE_NUMBER-1)
-                prob.add_option('print_level',0) 
+            timeco = end-start
+            solvesco = 1
+            
+            # infer violated constraints
+            inferred_nmineq = (optObj.constraints(xcofirst)-cub).clip(min=0)[ineqidx]
+            inferred_viols = np.where(np.abs(inferred_nmineq)>1e-5,1,0)
+            
+            if inferred_viols.sum() == 0:
+                print(f"Reduced problem solved in {(timeco):.5f}s with 1 solve, objective {obj_cofirst} with {inferred_viols.sum()} violations.\n")
+                times.append(timeco)
+                solves.append(solvesco)
+            else:
+                convex_marker = np.where(convex_marker+inferred_viols>0,0,1)
+                optObjR = opfSocpR(this_case,convex_marker,cn)
+                optObjR.change_loads(pd,qd)
+                pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs(optObjR)
+                prob = cyipopt.Problem(**pdk)
+                for k,v in psk.items():
+                    prob.add_option(k,v)
                 start = time()
-                x, info = prob.solve(optObj.calc_x0_flatstart())
+                xcosecond, infocosecond = prob.solve(optObjR.calc_x0_flatstart())
+                obj_cosecond = infocosecond['obj_val']
                 end = time()
-                inferred_cons = (optObj.constraints(x)-cub).clip(min=0)[ineqidx]
-                val = info['obj_val']
-                print(f'Second solve objective is {val}, {np.where(np.abs(inferred_cons)>1e-4,1,0).sum()} violated cons.')
-                this_time += end-start
-                this_solve += 1
-            print(f'For method convex, solved {cn}-reduced in {this_time} with {this_solve} solve(s).\n')
-            
-            
-            
-            
-            
-        
-        
+                timeco += end-start
+                solvesco += 1
+                inferred_nmineq = (optObj.constraints(xcofirst)-cub).clip(min=0)[ineqidx]
+                inferred_viols = np.where(np.abs(inferred_nmineq)>1e-5,1,0)
+                print(f"Reduced problem solved in {(timeco):.5f}s with 2 solves, objective {obj_cosecond} with {inferred_viols.sum()} violations.\n")
+                times.append(timeco)
+                solves.append(solvesco)
+                
+        # print stats
+        print(f"For case {cn}\nfull problem average solve time: {np.array(full_times).mean()}\nreduced problem average solve time: {np.array(times).mean()}\nreduced problem average solves: {np.array(solves).mean()}.\n\n")

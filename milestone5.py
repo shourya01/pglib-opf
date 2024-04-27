@@ -220,7 +220,7 @@ if __name__ == "__main__":
             # loss_cost = F.mse_loss(ConvexModel(inp_t),cost_t,reduction='mean')
             loss = F.mse_loss(RidgeModel(inp_t),rout_t,reduction='mean')
             # loss = loss_grad
-            optimRidge.zero_grad()
+            optimRidge.zero_grad()/
             loss.backward()
             optimRidge.step()
             del rout_t

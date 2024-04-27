@@ -61,16 +61,19 @@ if __name__ == "__main__":
             cl=clb,
             cu=cub
         )
-        input, output_duals, output_cost = [], [], []
+        inplst, output_duals, output_cost = [], [], []
         # load pickle
         for nfiles in tqdm(range(NUM_FILES_FOR_DATA)):
             with open(os.getcwd()+'/'+dir_name+cn+f'_data_rank_{nfiles}.pkl','rb') as file:
                 data = pickle.load(file)
             for dat in data:
-                # save input
-                lst = [v for _,v in dat[0].items()]
+                # save inplst
+                lst = [(k,v) for k,v in dat[0].items()]
+                key = [itm[0] for itm in lst]
+                lst = [itm[1] for itm in lst]
+                # print(key)
                 lst = [np.zeros_like(itm) if idx>=2 else itm for idx,itm in enumerate(lst)]
-                input.append(np.concatenate(lst))
+                inplst.append(np.concatenate(lst))
                 # convert duals to negative and save
                 dual = dat[1]['mult_g'][np.concatenate([optObj.cidx[consn] for consn in ['balance_real','balance_reac','flow_f','flow_t','angmin','angmax']])]
                 # dual = np.where(dual<0,dual,-dual)
@@ -78,10 +81,10 @@ if __name__ == "__main__":
                 # append cost
                 output_cost.append(dat[1]['obj_val'])
         
-        input = np.array(input)
+        inplst = np.array(inplst)
         output_duals = np.array(output_duals)
         output_cost = np.array(output_cost)
         
-        np.savez(os.getcwd()+'/'+dir_name_save+f'{cn}_inp.npz',data=input)
+        np.savez(os.getcwd()+'/'+dir_name_save+f'{cn}_inp.npz',data=inplst)
         np.savez(os.getcwd()+'/'+dir_name_save+f'{cn}_dual.npz',data=output_duals)
         np.savez(os.getcwd()+'/'+dir_name_save+f'{cn}_costs.npz',data=output_cost)
