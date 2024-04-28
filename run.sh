@@ -1,20 +1,19 @@
-#!/bin/bash
+#!/bin/bash -l
+#SBATCH --job-name=LOWESTEST
+#SBATCH --account=NEXTGENOPT
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu:1
+#SBATCH --time=23:59:59
+#SBATCH --output=HAX.log
 
-#SBATCH -p 256x44   # Partition name
-#SBATCH -J ipopt-opf        # Job name
-#SBATCH --mail-user=shbose@ucsc.edu
-#SBATCH --mail-type=ALL
-#SBATCH -o solve.log    # Name of stdout output file
-#SBATCH -N 1        # Total number of nodes requested (128x24/Instructional only)
-#SBATCH --ntasks=22
-#SBATCH --cpus-per-task=2
-#SBATCH -t 48:00:00  # Run Time (hh:mm:ss) - 1.5 hours (optional)
+now=$(date)
+echo $now
 
-export OMPI_MCA_btl=tcp,sm,self\
-module load miniconda3
+module load anaconda3
 conda init
-conda activate FL
-cd /hb/home/shbose/pglib-opf
+conda activate autodiff
+cd /home/sbose/pglib-opf
 
 # Use of -p replaces the need to use "#SBATCH --cpus-per-task"
-srun -n 22 --cpus-per-task=2 --mem-per-cpu=4G python milestone4b.py
+python milestone5b.py
+scancel -u sbose

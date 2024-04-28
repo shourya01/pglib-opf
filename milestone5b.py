@@ -18,6 +18,7 @@ from ConvexModel import ConvexNet
 from ClassifierModel import ClassifierNet
 from RidgeModel import RidgeNet
 import xgboost as xgb
+from xgboost import XGBClassifier
 
 # octave = Oct2Py()
 dir_name = 'data/'
@@ -365,20 +366,21 @@ if __name__ == "__main__":
         inp_data_train_XGB = inp_data_train.copy()
         dual_data_train_XGB = np.where(np.abs(dual_data_train)<DUAL_THRES,0,1)
         dtrain = xgb.DMatrix(inp_data_train_XGB, label=dual_data_train_XGB)
+        num_rounds = 5
         params = {
             'objective': 'binary:logistic',
-            'eval_metric': 'logloss',  # You can also use 'auc', 'error' (for classification error), etc.
-            'device': 'cuda:0',  # This parameter specifies the use of the GPU
+            'n_estimators': num_rounds,
+            'device': 'cuda:0',  
             'learning_rate': 0.1,
             'max_depth': 4,
             'min_child_weight': 1,
+            'sampling_method':'gradient_based',
             'subsample': 0.8,
             'colsample_bytree': 0.8,
         }
-        num_rounds = 5
-        bst = xgb.train(params, dtrain, num_rounds)
-        dpredict = xgb.DMatrix(inp_data_test)  # Features for prediction
-        out_test = bst.predict(dpredict)
+        model = XGBClassifier(**params)
+        model.fit(inp_data_train_XGB,dual_data_train_XGB)
+        out_test = model.predict(inp_data_test)
         tp, tn, fp, fn = out_test[:,nmineq]*dual_data_test[:,nmineq],\
                     (1-out_test[:,nmineq])*(1-dual_data_test[:,nmineq]),\
                     out_test[:,nmineq]*(1-dual_data_test[:,nmineq]),\
@@ -390,9 +392,7 @@ if __name__ == "__main__":
         logfile.write(f"For case {cn}, method: xgboost.\nTP: {tp*100/allv:.5f}, TN: {tn*100/allv:.5f}, FP: {fp*100/allv:.5f}, FN: {fn*100/allv:.5f}.\n\n")
         
         np.savez_compressed(os.getcwd()+f'/saved/{cn}_out_xgboost.npz',data=out_test)
-        
-        del dpredict
-        del dtrain
+
         gc.collect()
         
     logfile.close()

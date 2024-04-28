@@ -1,0 +1,30 @@
+Sat 27 Apr 2024 08:50:33 PM CDT
+environment: line 5: __conda_exe: command not found
+no change     /gpfs/fs1/soft/swing/manual/anaconda3/2023-01-11/mconda3/condabin/conda
+no change     /gpfs/fs1/soft/swing/manual/anaconda3/2023-01-11/mconda3/bin/conda
+no change     /gpfs/fs1/soft/swing/manual/anaconda3/2023-01-11/mconda3/bin/conda-env
+no change     /gpfs/fs1/soft/swing/manual/anaconda3/2023-01-11/mconda3/bin/activate
+no change     /gpfs/fs1/soft/swing/manual/anaconda3/2023-01-11/mconda3/bin/deactivate
+no change     /gpfs/fs1/soft/swing/manual/anaconda3/2023-01-11/mconda3/etc/profile.d/conda.sh
+no change     /gpfs/fs1/soft/swing/manual/anaconda3/2023-01-11/mconda3/etc/fish/conf.d/conda.fish
+no change     /gpfs/fs1/soft/swing/manual/anaconda3/2023-01-11/mconda3/shell/condabin/Conda.psm1
+no change     /gpfs/fs1/soft/swing/manual/anaconda3/2023-01-11/mconda3/shell/condabin/conda-hook.ps1
+no change     /gpfs/fs1/soft/swing/manual/anaconda3/2023-01-11/mconda3/lib/python3.10/site-packages/xontrib/conda.xsh
+no change     /gpfs/fs1/soft/swing/manual/anaconda3/2023-01-11/mconda3/etc/profile.d/conda.csh
+no change     /home/sbose/.bashrc
+No action taken.
+Solving case pglib_opf_case118_ieee.
+/home/sbose/.conda/envs/autodiff/lib/python3.9/site-packages/xgboost/core.py:160: UserWarning: [20:51:26] WARNING: /workspace/src/common/error_msg.cc:58: Falling back to prediction using DMatrix due to mismatched devices. This might lead to higher memory usage and slower performance. XGBoost is running on: cuda:0, while the input data is on: cpu.
+Potential solutions:
+- Use a data structure that matches the device ordinal in the booster.
+- Set the device for booster before call to inplace_predict.
+
+This warning will only be shown once.
+
+  warnings.warn(smsg, UserWarning)
+For case pglib_opf_case118_ieee, method: xgboost, TP: 0.12712, TN: 99.86235, FP: 0.00000, FN: 0.01053.
+Solving case pglib_opf_case2312_goc.
+For case pglib_opf_case2312_goc, method: xgboost, TP: 3.13661, TN: 96.85614, FP: 0.00000, FN: 0.00725.
+Solving case pglib_opf_case4601_goc.
+For case pglib_opf_case4601_goc, method: xgboost, TP: 0.00366, TN: 99.99567, FP: 0.00000, FN: 0.00067.
+Solving case pglib_opf_case10000_goc.

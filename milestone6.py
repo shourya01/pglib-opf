@@ -86,29 +86,20 @@ if __name__ == "__main__":
         
         print(f"-----\nSolving case {cn}\n-----\n\n")
     
-        inp_data = np.load(os.getcwd()+'/'+dir_name+f'{cn}_inp.npz')['data']
-        dual_data = np.load(os.getcwd()+'/'+dir_name+f'{cn}_dual.npz')['data']
+        # inp_data = np.load(os.getcwd()+'/'+dir_name+f'{cn}_inp.npz')['data']
         
         # modify the input
         optObj = opfSocp(this_case,cn) # generate object
         
-        # # do full unperturbed solve
-        # optObj = opfSocp(this_case,cn)
-        # pdk, psk = problem_def_kwargs(optObj,*optObj.calc_var_bounds(),*optObj.calc_cons_bounds()), problem_settings_kwargs(optObj)
-        # prob = cyipopt.Problem(**pdk)
-        # for k,v in psk.items():
-        #     prob.add_option(k,v)
-        # start = time()
-        # xorig, infoorig = prob.solve(optObj.calc_x0_flatstart())
-        # end = time()
-        # obj_orig, status = infoorig['obj_val'], infoorig['status']
-        # print(f"-----\nUnperturbed full problem solved in {(end-start):.5f}s with objective {obj_orig} and status {status}.\n-----\n\n")
-        
-        # input data for different methods
+        # input and output data for different methods
+        inp_data = np.load(os.getcwd()+f'/saved/{cn}_out_inp.npz')['data'] # input
         convex_out = np.load(os.getcwd()+f'/saved/{cn}_out_convex.npz')['data'] # convex
         classifier_out = np.load(os.getcwd()+f'/saved/{cn}_out_classifier.npz')['data'] # classifier
         ridge_out = np.load(os.getcwd()+f'/saved/{cn}_out_ridge.npz')['data'] # ridge
-        xgboost_out = np.load(os.getcwd()+f'/saved/{cn}_out_xgboost.npz')['data'] # xgboost
+        if cn != 'pglib_opf_case10000_goc':
+            xgboost_out = np.load(os.getcwd()+f'/saved/{cn}_out_xgboost.npz')['data'] # xgboost
+        else:
+            xgboost_out = np.ones_like(ridge_out) # no xgboost for 10000
         
         # set up relevant indices for reduced solves
         ineqidx = ((1-optObj.is_model)*(1-optObj.is_equality)).astype(bool) # nonmodel inequalities

@@ -1,16 +1,9 @@
-For case pglib_opf_case118_ieee, method: convex. TP: 1.46221, TN: 35.21855, FP: 63.05391, FN: 0.26532.
-For case pglib_opf_case118_ieee, method: classifier. TP: 0.34948, TN: 97.94990, FP: 0.32257, FN: 1.37806.
-For case pglib_opf_case118_ieee, method: ridge. TP: 0.20525, TN: 98.20889, FP: 0.06357, FN: 1.52229.
-For case pglib_opf_case118_ieee, method: xgboost. TP: 0.89956, TN: 83.31268, FP: 14.95978, FN: 0.82797.
-For case pglib_opf_case2312_goc, method: convex. TP: 3.63528, TN: 94.77838, FP: 1.58377, FN: 0.00257.
-For case pglib_opf_case2312_goc, method: classifier. TP: 3.50010, TN: 95.93760, FP: 0.42456, FN: 0.13774.
-For case pglib_opf_case2312_goc, method: ridge. TP: 3.37244, TN: 96.13353, FP: 0.22863, FN: 0.26541.
-For case pglib_opf_case2312_goc, method: xgboost. TP: 2.12564, TN: 78.58565, FP: 17.77650, FN: 1.51221.
-For case pglib_opf_case4601_goc, method: convex. TP: 0.00775, TN: 99.98611, FP: 0.00614, FN: 0.00000.
-For case pglib_opf_case4601_goc, method: classifier. TP: 0.00695, TN: 99.99225, FP: 0.00000, FN: 0.00081.
-For case pglib_opf_case4601_goc, method: ridge. TP: 0.00695, TN: 99.99225, FP: 0.00000, FN: 0.00081.
-For case pglib_opf_case4601_goc, method: xgboost. TP: 0.00433, TN: 84.22242, FP: 15.76982, FN: 0.00342.
-For case pglib_opf_case10000_goc, method: convex. TP: 0.20055, TN: 99.72707, FP: 0.07233, FN: 0.00005.
-For case pglib_opf_case10000_goc, method: classifier. TP: 0.19581, TN: 99.79435, FP: 0.00505, FN: 0.00479.
-For case pglib_opf_case10000_goc, method: ridge. TP: 0.19430, TN: 99.79662, FP: 0.00278, FN: 0.00630.For case pglib_opf_case10000_goc, method: convex. TP: 0.20055, TN: 99.72707, FP: 0.07233, FN: 0.00005.
-For case pglib_opf_case10000_goc, method: classifier. TP: 0.19581, TN: 99.79435, FP: 0.00505, FN: 0.00479.
+For case pglib_opf_case118_ieee, method: xgboost.
+TP: 0.12712, TN: 99.86235, FP: 0.00000, FN: 0.01053.
+
+For case pglib_opf_case2312_goc, method: xgboost.
+TP: 3.13661, TN: 96.85614, FP: 0.00000, FN: 0.00725.
+
+For case pglib_opf_case4601_goc, method: xgboost.
+TP: 0.00366, TN: 99.99567, FP: 0.00000, FN: 0.00067.
+
