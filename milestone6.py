@@ -12,8 +12,7 @@ from problemDefJITR import opfSocpR
 from problemDefJITMargin import opfSocpMargin
 from utils import make_data_parallel
 from tqdm import tqdm, trange
-import torch
-import torch.nn as nn
+from itertools import zip_longest
 import gc
 from time import time
 from ConvexModel import ConvexNet
@@ -28,8 +27,20 @@ from sklearn.linear_model import RidgeClassifier
 octave = Oct2Py()
 dir_name = 'data/'
 MAX_BUS = 10000
-NUM_SOLVES = 2
-VIOL_THRES = 1e-4
+NUM_SOLVES = 20
+VIOL_THRES = 1e-5
+
+def dri(arr:np.ndarray):
+    # row indices in descending order of nonzeros
+    nonzero_counts = np.count_nonzero(arr.astype(int), axis=1)
+    return nonzero_counts, np.argsort(nonzero_counts)
+
+def difficult_case_selector(arr1:np.ndarray, arr2:np.ndarray, arr3:np.ndarray, arr4:np.ndarray):
+    # select at-least-one-binding cases from all of the 4 arrays
+    (c1,nz1),(c2,nz2),(c3,nz3),(c4,nz4) = dri(arr1), dri(arr2), dri(arr3), dri(arr4)
+    interleaved = np.unique(np.array([e for t in zip_longest(nz1,nz2,nz3,nz4) for e in t if e is not None]))
+    # return interleaved[:NUM_SOLVES]
+    return nz4[:NUM_SOLVES]
 
 if __name__ == "__main__":
     
@@ -61,11 +72,11 @@ if __name__ == "__main__":
             casenames.append(cname)
             
     # write
-    logfile = open('perf2.txt','a')
+    logfile = open('perf2.txt','w')
             
     # define kwargs
     problem_settings_kwargs = lambda obj:{
-        'tol':1e-6,
+        'tol':1e-8,
         'mu_max':1e-0,
         'mu_init':1e-0,
         'nlp_lower_bound_inf':-obj.LARGE_NUMBER+1,
@@ -85,27 +96,32 @@ if __name__ == "__main__":
     for cn,this_case in zip(casenames,cases):
         
         print(f"-----\nSolving case {cn}\n-----\n\n")
-    
-        # inp_data = np.load(os.getcwd()+'/'+dir_name+f'{cn}_inp.npz')['data']
+        
         
         # modify the input
         optObj = opfSocp(this_case,cn) # generate object
         
-        # input and output data for different methods
-        inp_data = np.load(os.getcwd()+f'/saved/{cn}_out_inp.npz')['data'] # input
+        # output  data for different methods
+        inp_data = np.load(os.getcwd()+f'/saved/{cn}_test_inp.npz')['data'] # input
+        gt_data = np.load(os.getcwd()+f'/saved/{cn}_test_gt.npz')['data'] # ground truth
         convex_out = np.load(os.getcwd()+f'/saved/{cn}_out_convex.npz')['data'] # convex
-        classifier_out = np.load(os.getcwd()+f'/saved/{cn}_out_classifier.npz')['data'] # classifier
-        ridge_out = np.load(os.getcwd()+f'/saved/{cn}_out_ridge.npz')['data'] # ridge
+        classifier_out = np.load(os.getcwd()+f'/saved/{cn}_out_classifier.npz')['data'].astype(int) # classifier
+        ridge_out = np.load(os.getcwd()+f'/saved/{cn}_out_ridge.npz')['data'].astype(int) # ridge
         if cn != 'pglib_opf_case10000_goc':
-            xgboost_out = np.load(os.getcwd()+f'/saved/{cn}_out_xgboost.npz')['data'] # xgboost
+            xgboost_out = np.load(os.getcwd()+f'/saved/{cn}_out_xgboost.npz')['data'].astype(int) # xgboost
         else:
-            xgboost_out = np.ones_like(ridge_out) # no xgboost for 10000
-        
+            xgboost_out = np.ones_like(ridge_out).astype(int) # no xgboost for 10000
+            
         # set up relevant indices for reduced solves
         ineqidx = ((1-optObj.is_model)*(1-optObj.is_equality)).astype(bool) # nonmodel inequalities
         nmineq = np.ones(2*optObj.n_bus+4*optObj.n_branch)
         nmineq[:2*optObj.n_bus] = 0
         nmineq = nmineq.astype(bool).tolist()
+            
+        # select 'difficult' cases
+        idx_d = difficult_case_selector((1-convex_out[:,nmineq])*gt_data,(1-classifier_out[:,nmineq])*gt_data,(1-ridge_out[:,nmineq])*gt_data,(1-xgboost_out[:,nmineq])*gt_data)
+        inp_data, convex_out, classifier_out, ridge_out, xgboost_out = inp_data[idx_d,:],\
+        convex_out[idx_d,:], classifier_out[idx_d,:], ridge_out[idx_d,:], xgboost_out[idx_d,:]
         
         # set up lists to record time
         full_times = []
@@ -114,7 +130,6 @@ if __name__ == "__main__":
         ridge_times, ridge_solves = [], []
         xgboost_times, xgboost_solves = [], []
         optObj = opfSocp(this_case,cn)
-        cub, _ = optObj.calc_cons_bounds() # only for inferring violations
         
         for sidx in range(NUM_SOLVES):
             
@@ -157,7 +172,7 @@ if __name__ == "__main__":
             solvesco = 1
             
             # infer violated constraints
-            inferred_nmineq = (optObj.constraints(xcofirst)-cub).clip(min=0)[ineqidx]
+            inferred_nmineq = optObj.constraints(xcofirst).clip(min=0)[ineqidx]
             inferred_viols = np.where(np.abs(inferred_nmineq)>VIOL_THRES,1,0)
             
             if inferred_viols.sum() == 0:
@@ -166,7 +181,7 @@ if __name__ == "__main__":
                 convex_solves.append(solvesco)
             else:
                 print(f"Detected {inferred_viols.sum()} violations with objective {obj_cofirst}.")
-                convex_marker = np.where(convex_marker+inferred_viols>0,0,1)
+                convex_marker = np.where(convex_marker+inferred_viols>0,1,0)
                 optObjR = opfSocpR(this_case,convex_marker,cn)
                 optObjR.change_loads(pd,qd)
                 pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs(optObjR)
@@ -179,7 +194,7 @@ if __name__ == "__main__":
                 end = time()
                 timeco += end-start
                 solvesco += 1
-                inferred_nmineq = (optObj.constraints(xcosecond)-cub).clip(min=0)[ineqidx]
+                inferred_nmineq = optObj.constraints(xcosecond).clip(min=0)[ineqidx]
                 inferred_viols = np.where(np.abs(inferred_nmineq)>VIOL_THRES,1,0)
                 print(f"Reduced problem solved in {(timeco):.5f}s with 2 solves, objective {obj_cosecond} with {inferred_viols.sum()} violations.")
                 convex_times.append(timeco)
@@ -208,7 +223,7 @@ if __name__ == "__main__":
             solvescl = 1
             
             # infer violated constraints
-            inferred_nmineq = (optObj.constraints(xclfirst)-cub).clip(min=0)[ineqidx]
+            inferred_nmineq = optObj.constraints(xclfirst).clip(min=0)[ineqidx]
             inferred_viols = np.where(np.abs(inferred_nmineq)>VIOL_THRES,1,0)
             
             if inferred_viols.sum() == 0:
@@ -217,7 +232,7 @@ if __name__ == "__main__":
                 classifier_solves.append(solvescl)
             else:
                 print(f"Detected {inferred_viols.sum()} violations with objective {obj_clfirst}.")
-                classifier_marker = np.where(classifier_marker+inferred_viols>0,0,1)
+                classifier_marker = np.where(classifier_marker+inferred_viols>0,1,0)
                 optObjR = opfSocpR(this_case,classifier_marker,cn)
                 optObjR.change_loads(pd,qd)
                 pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs(optObjR)
@@ -230,7 +245,7 @@ if __name__ == "__main__":
                 end = time()
                 timecl += end-start
                 solvescl += 1
-                inferred_nmineq = (optObj.constraints(xclsecond)-cub).clip(min=0)[ineqidx]
+                inferred_nmineq = optObj.constraints(xclsecond).clip(min=0)[ineqidx]
                 inferred_viols = np.where(np.abs(inferred_nmineq)>VIOL_THRES,1,0)
                 print(f"Reduced problem solved in {(timecl):.5f}s with 2 solves, objective {obj_clsecond} with {inferred_viols.sum()} violations.")
                 classifier_times.append(timecl)
@@ -240,7 +255,6 @@ if __name__ == "__main__":
             
             # print
             print("Ridge:")
-            print(ridge_out.shape)
             
             # marker
             ridge_marker = ridge_out[sidx,:][nmineq]
@@ -260,16 +274,16 @@ if __name__ == "__main__":
             solvesrg = 1
             
             # infer violated constraints
-            inferred_nmineq = (optObj.constraints(xrgfirst)-cub).clip(min=0)[ineqidx]
+            inferred_nmineq = optObj.constraints(xrgfirst).clip(min=0)[ineqidx]
             inferred_viols = np.where(np.abs(inferred_nmineq)>VIOL_THRES,1,0)
             
             if inferred_viols.sum() == 0:
                 print(f"Reduced problem solved in {(timerg):.5f}s with 1 solve, objective {obj_rgfirst} with {inferred_viols.sum()} violations.")
-                classifier_times.append(timerg)
-                classifier_solves.append(solvesrg)
+                ridge_times.append(timerg)
+                ridge_solves.append(solvesrg)
             else:
                 print(f"Detected {inferred_viols.sum()} violations with objective {obj_rgfirst}.")
-                ridge_marker = np.where(ridge_marker+inferred_viols>0,0,1)
+                ridge_marker = np.where(ridge_marker+inferred_viols>0,1,0)
                 optObjR = opfSocpR(this_case,ridge_marker,cn)
                 optObjR.change_loads(pd,qd)
                 pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs(optObjR)
@@ -282,7 +296,7 @@ if __name__ == "__main__":
                 end = time()
                 timerg += end-start
                 solvesrg  += 1
-                inferred_nmineq = (optObj.constraints(xrgsecond)-cub).clip(min=0)[ineqidx]
+                inferred_nmineq = optObj.constraints(xrgsecond).clip(min=0)[ineqidx]
                 inferred_viols = np.where(np.abs(inferred_nmineq)>VIOL_THRES,1,0)
                 print(f"Reduced problem solved in {(timerg):.5f}s with 2 solves, objective {obj_rgsecond} with {inferred_viols.sum()} violations.")
                 ridge_times.append(timerg)
@@ -294,7 +308,6 @@ if __name__ == "__main__":
             print("XGBoost:")
             
             # marker
-            print(xgboost_out.shape)
             xgboost_marker = xgboost_out[sidx,:][nmineq]
             
             # calculate first solve for classifier
@@ -312,16 +325,16 @@ if __name__ == "__main__":
             solvesxg = 1
             
             # infer violated constraints
-            inferred_nmineq = (optObj.constraints(xxgfirst)-cub).clip(min=0)[ineqidx]
+            inferred_nmineq = optObj.constraints(xxgfirst).clip(min=0)[ineqidx]
             inferred_viols = np.where(np.abs(inferred_nmineq)>VIOL_THRES,1,0)
             
             if inferred_viols.sum() == 0:
                 print(f"Reduced problem solved in {(timexg):.5f}s with 1 solve, objective {obj_xgfirst} with {inferred_viols.sum()} violations.\n")
-                classifier_times.append(timexg)
-                classifier_solves.append(solvesxg)
+                xgboost_times.append(timexg)
+                xgboost_solves.append(solvesxg)
             else:
                 print(f"Detected {inferred_viols.sum()} violations with objective {obj_rgfirst}.")
-                xgboost_marker = np.where(xgboost_marker+inferred_viols>0,0,1)
+                xgboost_marker = np.where(xgboost_marker+inferred_viols>0,1,0)
                 optObjR = opfSocpR(this_case,xgboost_marker,cn)
                 optObjR.change_loads(pd,qd)
                 pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs(optObjR)
@@ -334,7 +347,7 @@ if __name__ == "__main__":
                 end = time()
                 timexg += end-start
                 solvesxg  += 1
-                inferred_nmineq = (optObj.constraints(xxgsecond)-cub).clip(min=0)[ineqidx]
+                inferred_nmineq = optObj.constraints(xxgsecond).clip(min=0)[ineqidx]
                 inferred_viols = np.where(np.abs(inferred_nmineq)>VIOL_THRES,1,0)
                 print(f"Reduced problem solved in {(timexg):.5f}s with 2 solves, objective {obj_xgsecond} with {inferred_viols.sum()} violations.\n")
                 xgboost_times.append(timexg)
@@ -346,11 +359,11 @@ if __name__ == "__main__":
                 (f"For case {cn}, solved {NUM_SOLVES} test cases:\n"
                 f"full problem average solve time: {np.array(full_times).mean()}"
                 f"\nreduced problem average solve time (convex): {np.array(convex_times).mean()}"
-                f"\nreduced problem average solves (convex): {np.array(convex_solves).mean()}.\n\n"
+                f"\nreduced problem average solves (convex): {np.array(convex_solves).mean()}."
                 f"\nreduced problem average solve time (classifier): {np.array(classifier_times).mean()}"
-                f"\nreduced problem average solves (classifier): {np.array(classifier_solves).mean()}.\n\n"
+                f"\nreduced problem average solves (classifier): {np.array(classifier_solves).mean()}."
                 f"\nreduced problem average solve time (ridge): {np.array(ridge_times).mean()}"
-                f"\nreduced problem average solves (ridge): {np.array(ridge_solves).mean()}.\n\n"
+                f"\nreduced problem average solves (ridge): {np.array(ridge_solves).mean()}."
                 f"\nreduced problem average solve time (xgboost): {np.array(xgboost_times).mean()}"
                 f"\nreduced problem average solves (xgboost): {np.array(xgboost_solves).mean()}.\n\n")
             )
@@ -358,14 +371,14 @@ if __name__ == "__main__":
                 (f"For case {cn}, solved {NUM_SOLVES} test cases:\n"
                 f"full problem average solve time: {np.array(full_times).mean()}"
                 f"\nreduced problem average solve time (convex): {np.array(convex_times).mean()}"
-                f"\nreduced problem average solves (convex): {np.array(convex_solves).mean()}.\n\n"
+                f"\nreduced problem average solves (convex): {np.array(convex_solves).mean()}."
                 f"\nreduced problem average solve time (classifier): {np.array(classifier_times).mean()}"
-                f"\nreduced problem average solves (classifier): {np.array(classifier_solves).mean()}.\n\n"
+                f"\nreduced problem average solves (classifier): {np.array(classifier_solves).mean()}."
                 f"\nreduced problem average solve time (ridge): {np.array(ridge_times).mean()}"
-                f"\nreduced problem average solves (ridge): {np.array(ridge_solves).mean()}.\n\n"
+                f"\nreduced problem average solves (ridge): {np.array(ridge_solves).mean()}."
                 f"\nreduced problem average solve time (xgboost): {np.array(xgboost_times).mean()}"
                 f"\nreduced problem average solves (xgboost): {np.array(xgboost_solves).mean()}.\n\n")
         )
-        logfile.close()
+    logfile.close()
         
         

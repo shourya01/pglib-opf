@@ -88,7 +88,6 @@ class opfSocpR():
         # process reductions
         assert self.reductions.size == 4*self.n_branch, "Incorrect size of reductions vector"
         self.idx_ffr, self.idx_ftr, self.idx_aminr, self.idx_amaxr = np.array_split(self.reductions,4)
-        print(f"idx_ffr:{self.idx_ffr},idx_ftr:{self.idx_ftr},idx_aminr:{self.idx_aminr},idx_amaxr:{self.idx_amaxr}")
         
         # input size
         self.in_size = self.n_bus + 6*self.n_branch + 2*self.n_gen
