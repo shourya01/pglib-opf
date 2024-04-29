@@ -56,7 +56,8 @@ if __name__ == "__main__":
     # current_directory = '/home/sbose/pglib-opf/' # for running on BEBOP
     all_files_and_directories = os.listdir(current_directory)
     # three specific cases
-    case_files = [current_directory+i for i in ['pglib_opf_case3970_goc.m','pglib_opf_case2869_pegase.m','pglib_opf_case118_ieee.m','pglib_opf_case9241_pegase.m']]
+    # case_files = [current_directory+i for i in ['pglib_opf_case3970_goc.m','pglib_opf_case2869_pegase.m','pglib_opf_case118_ieee.m','pglib_opf_case9241_pegase.m']]
+    case_files = [current_directory+i for i in ['pglib_opf_case9241_pegase.m']]
 
     cases, casenames = [], []
     cases_full, casenames_full = [], []
@@ -96,8 +97,8 @@ if __name__ == "__main__":
         # Setup solver options
         prob.add_option('tol',1e-6)
         prob.add_option('mumps_mem_percent',25000)
-        prob.add_option('mu_max',1e-1) 
-        prob.add_option('mu_init',1e-1)
+        prob.add_option('mu_max',1e+1) 
+        prob.add_option('mu_init',1e+1)
         prob.add_option('max_iter',1000)
         
         # Solve ipopt problem
@@ -109,8 +110,8 @@ if __name__ == "__main__":
         # Setup solver options
         prob.add_option('tol',1e-6)
         prob.add_option('mumps_mem_percent',25000)
-        prob.add_option('mu_max',1e-1) 
-        prob.add_option('mu_init',1e-1)
+        prob.add_option('mu_max',1e+1) 
+        prob.add_option('mu_init',1e+1)
         prob.add_option('print_level',0) 
         prob.add_option('max_iter',1000)
         
@@ -140,6 +141,7 @@ if __name__ == "__main__":
             t.set_description(f"Status of point {pt_idx} is {info['status']}. Process ({mpi_rank}/{mpi_size}).")
             
         # save data
+        os.makedirs(os.getcwd()+f'/data2',exist_ok=True)
         if len(input_data) > 0:
             np.savez_compressed(os.getcwd()+f'/data2/{cn}_inp_{mpi_rank}.npz',data=np.array(input))
             np.savez_compressed(os.getcwd()+f'/data2/{cn}_dual_{mpi_rank}.npz',data=np.array(duals))
