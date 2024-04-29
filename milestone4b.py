@@ -115,7 +115,7 @@ if __name__ == "__main__":
         prob.add_option('max_iter',1000)
         
         # generate points
-        input, duals = [], []
+        input, duals, dualsv = [], [], []
         for pt_idx in (t:=trange(NUM_POINTS)):
             
             # set random seed
@@ -134,6 +134,7 @@ if __name__ == "__main__":
                 input.append(np.concatenate([itm[1] for itm in input_data.items()],axis=0))
                 dual = info['mult_g'][np.concatenate([optObj.cidx[consn] for consn in ['balance_real','balance_reac','flow_f','flow_t','angmin','angmax']])]
                 duals.append(dual)
+                dualsv.append(np.concatenate([info['mult_x_L'],info['mult_x_U']]))
             
             # output status
             t.set_description(f"Status of point {pt_idx} is {info['status']}. Process ({mpi_rank}/{mpi_size}).")
@@ -142,3 +143,4 @@ if __name__ == "__main__":
         if len(input_data) > 0:
             np.savez_compressed(os.getcwd()+f'/data2/{cn}_inp_{mpi_rank}.npz',data=np.array(input))
             np.savez_compressed(os.getcwd()+f'/data2/{cn}_dual_{mpi_rank}.npz',data=np.array(duals))
+            np.savez_compressed(os.getcwd()+f'/data2/{cn}_dualv_{mpi_rank}.npz',data=np.array(dualsv))
