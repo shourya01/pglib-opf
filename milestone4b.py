@@ -9,6 +9,12 @@ from pypower.api import loadcase
 from problemDefJITM import opfSocp
 from problemDefJITMargin import opfSocpMargin
 from mpi4py import MPI
+import argparse
+
+# argument of program to be run
+parser = argparse.ArgumentParser(description="Generate data files.")
+parser.add_argument('--case', type=str, default='pglib_opf_case118_ieee')
+args = parser.parse_args()
 
 # # get octave object
 octave = Oct2Py()
@@ -36,7 +42,7 @@ if __name__ == "__main__":
     all_files_and_directories = os.listdir(current_directory)
     # three specific cases
     # case_files = [current_directory+i for i in ['pglib_opf_case3970_goc.m','pglib_opf_case2869_pegase.m','pglib_opf_case118_ieee.m','pglib_opf_case9241_pegase.m']]
-    case_files = [current_directory+i for i in ['pglib_opf_case9241_pegase.m']]
+    case_files = [current_directory+i for i in [args.case+'.m']]
 
     cases, casenames = [], []
     cases_full, casenames_full = [], []
