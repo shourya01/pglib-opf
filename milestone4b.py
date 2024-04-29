@@ -124,7 +124,7 @@ if __name__ == "__main__":
             # get pd, qd and perturb
             pd,qd = optObj.get_loads()
             
-            dpd,dqd = (1-DIFF + np.random.rand(*pd.shape)*DIFF)*pd, (1-DIFF + np.random.rand(*qd.shape)*DIFF)*qd
+            dpd,dqd = (1-DIFF + 2*np.random.rand(*pd.shape)*DIFF)*pd, (1-DIFF + 2*np.random.rand(*qd.shape)*DIFF)*qd
             optObj.change_loads(dpd,dqd)
 
             # solve problem
