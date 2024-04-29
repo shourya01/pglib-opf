@@ -29,27 +29,6 @@ if __name__ == "__main__":
     mpi_rank = comm.Get_rank()
     mpi_size = comm.Get_size()
     NUM_POINTS = NUM_POINTS // mpi_size
-
-    # # get all cases in current directory
-    # current_directory = os.getcwd()+'/'
-    # # current_directory = '/home/sbose/pglib-opf/' # for running on BEBOP
-    # all_files_and_directories = os.listdir(current_directory)
-    # # three specific cases
-    # # todo_cases =  ['pglib_opf_case118_ieee',"pglib_opf_case10000_goc"]
-    # todo_cases = ['pglib_opf_case118_ieee',"pglib_opf_case10000_goc"] + ["pglib_opf_case2312_goc","pglib_opf_case4601_goc"]
-    # todo_cases = ['pglib_opf_case3970_goc']+['pglib_opf_case2869_pegase']+['pglib_opf_case118_ieee']+['pglib_opf_case9241_pegase_results']
-    
-    # with open(os.getcwd()+'/allcases.pkl','rb') as file:
-    #     data = pickle.load(file)
-        
-    # cases = data['cases']
-    # casenames = data['casenames']
-    # cases_new, casenames_new = [], []
-    # for cs,cn in zip(cases,casenames):
-    #     if cn in todo_cases:
-    #         cases_new.append(cs)
-    #         casenames_new.append(cn)
-    # cases, casenames = cases_new, casenames_new
     
     # get all cases in current directory
     current_directory = os.getcwd()+'/'
