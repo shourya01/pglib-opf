@@ -84,7 +84,7 @@ if __name__ == "__main__":
         prob.add_option('mumps_mem_percent',25000)
         prob.add_option('mu_max',1e+1) 
         prob.add_option('mu_init',1e+1)
-        prob.add_option('max_iter',150)
+        prob.add_option('max_iter',300)
         
         # Solve ipopt problem
         _, info_base = prob.solve(optObj.calc_x0_flatstart())
@@ -98,7 +98,7 @@ if __name__ == "__main__":
         prob.add_option('mu_max',1e+1) 
         prob.add_option('mu_init',1e+1)
         prob.add_option('print_level',0) 
-        prob.add_option('max_iter',150)
+        prob.add_option('max_iter',300)
         
         # generate points
         input, duals = [], []
