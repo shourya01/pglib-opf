@@ -49,7 +49,8 @@ if __name__ == "__main__":
     # current_directory = '/home/sbose/pglib-opf/' # for running on BEBOP
     all_files_and_directories = os.listdir(current_directory)
     # three specific cases
-    case_files = [current_directory+i for i in ['pglib_opf_case118_ieee.m','pglib_opf_case2312_goc.m',"pglib_opf_case4601_goc.m","pglib_opf_case10000_goc.m"]]
+    case_files = [current_directory+i for i in ['pglib_opf_case118_ieee.m','pglib_opf_case793_goc.m','pglib_opf_case1354_pegase.m','pglib_opf_case2312_goc.m','pglib_opf_case4601_goc.m','pglib_opf_case10000_goc.m']]
+    # case_files = [current_directory+i for i in ['pglib_opf_case2312_goc.m','pglib_opf_case10000_goc.m']]
     # case_files = [current_directory+i for i in ['pglib_opf_case2312_goc.m',"pglib_opf_case4601_goc.m"]]
 
     cases, casenames = [], []
@@ -83,6 +84,15 @@ if __name__ == "__main__":
         'nlp_upper_bound_inf':obj.LARGE_NUMBER-1,
         'print_level':0
     }
+    problem_settings_kwargs_reduced = lambda obj:{
+        'tol':1e-5,
+        'mu_max':1e-0,
+        'mu_init':1e-0,
+        'nlp_lower_bound_inf':-obj.LARGE_NUMBER+1,
+        'nlp_upper_bound_inf':obj.LARGE_NUMBER-1,
+        'print_level':0,
+        'fixed_variable_treatment':'make_parameter_nodual'
+    }
     problem_def_kwargs = lambda obj,var_ub,var_lb,cons_ub,cons_lb: {
         'n':var_lb.size,
         'm':cons_lb.size,
@@ -114,14 +124,15 @@ if __name__ == "__main__":
             
         # set up relevant indices for reduced solves
         ineqidx = ((1-optObj.is_model)*(1-optObj.is_equality)).astype(bool) # nonmodel inequalities
-        nmineq = np.ones(2*optObj.n_bus+4*optObj.n_branch)
+        nmineq = np.ones(2*optObj.n_bus+4*optObj.n_branch+2*optObj.in_size)
         nmineq[:2*optObj.n_bus] = 0
         nmineq = nmineq.astype(bool).tolist()
+        nmi_cons_size = 4*optObj.n_branch
             
-        # select 'difficult' cases
-        idx_d = difficult_case_selector((1-convex_out[:,nmineq])*gt_data,(1-classifier_out[:,nmineq])*gt_data,(1-ridge_out[:,nmineq])*gt_data,(1-xgboost_out[:,nmineq])*gt_data)
-        inp_data, convex_out, classifier_out, ridge_out, xgboost_out = inp_data[idx_d,:],\
-        convex_out[idx_d,:], classifier_out[idx_d,:], ridge_out[idx_d,:], xgboost_out[idx_d,:]
+        # # select 'difficult' cases
+        # idx_d = difficult_case_selector((1-convex_out[:,nmineq])*gt_data,(1-classifier_out[:,nmineq])*gt_data,(1-ridge_out[:,nmineq])*gt_data,(1-xgboost_out[:,nmineq])*gt_data)
+        # inp_data, convex_out, classifier_out, ridge_out, xgboost_out = inp_data[idx_d,:],\
+        # convex_out[idx_d,:], classifier_out[idx_d,:], ridge_out[idx_d,:], xgboost_out[idx_d,:]
         
         # set up lists to record time
         full_times = []
@@ -160,7 +171,7 @@ if __name__ == "__main__":
             # calculate first solve for convex
             optObjR = opfSocpR(this_case,convex_marker,cn)
             optObjR.change_loads(pd,qd)
-            pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs(optObjR)
+            pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs_reduced(optObjR)
             prob = cyipopt.Problem(**pdk)
             for k,v in psk.items():
                 prob.add_option(k,v)
@@ -181,10 +192,10 @@ if __name__ == "__main__":
                 convex_solves.append(solvesco)
             else:
                 print(f"Detected {inferred_viols.sum()} violations with objective {obj_cofirst}.")
-                convex_marker = np.where(convex_marker+inferred_viols>0,1,0)
+                convex_marker = np.concatenate([np.where(convex_marker[:nmi_cons_size]+inferred_viols>0,1,0),convex_marker[nmi_cons_size:]])
                 optObjR = opfSocpR(this_case,convex_marker,cn)
                 optObjR.change_loads(pd,qd)
-                pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs(optObjR)
+                pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs_reduced(optObjR)
                 prob = cyipopt.Problem(**pdk)
                 for k,v in psk.items():
                     prob.add_option(k,v)
@@ -211,7 +222,7 @@ if __name__ == "__main__":
             # calculate first solve for classifier
             optObjR = opfSocpR(this_case,classifier_marker,cn)
             optObjR.change_loads(pd,qd)
-            pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs(optObjR)
+            pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs_reduced(optObjR)
             prob = cyipopt.Problem(**pdk)
             for k,v in psk.items():
                 prob.add_option(k,v)
@@ -232,10 +243,10 @@ if __name__ == "__main__":
                 classifier_solves.append(solvescl)
             else:
                 print(f"Detected {inferred_viols.sum()} violations with objective {obj_clfirst}.")
-                classifier_marker = np.where(classifier_marker+inferred_viols>0,1,0)
+                classifier_marker = np.concatenate([np.where(classifier_marker[:nmi_cons_size]+inferred_viols>0,1,0),classifier_marker[nmi_cons_size:]])
                 optObjR = opfSocpR(this_case,classifier_marker,cn)
                 optObjR.change_loads(pd,qd)
-                pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs(optObjR)
+                pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs_reduced(optObjR)
                 prob = cyipopt.Problem(**pdk)
                 for k,v in psk.items():
                     prob.add_option(k,v)
@@ -262,7 +273,7 @@ if __name__ == "__main__":
             # calculate first solve for classifier
             optObjR = opfSocpR(this_case,ridge_marker,cn)
             optObjR.change_loads(pd,qd)
-            pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs(optObjR)
+            pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs_reduced(optObjR)
             prob = cyipopt.Problem(**pdk)
             for k,v in psk.items():
                 prob.add_option(k,v)
@@ -283,10 +294,10 @@ if __name__ == "__main__":
                 ridge_solves.append(solvesrg)
             else:
                 print(f"Detected {inferred_viols.sum()} violations with objective {obj_rgfirst}.")
-                ridge_marker = np.where(ridge_marker+inferred_viols>0,1,0)
+                ridge_marker = np.concatenate([np.where(ridge_marker[:nmi_cons_size]+inferred_viols>0,1,0),ridge_marker[nmi_cons_size:]])
                 optObjR = opfSocpR(this_case,ridge_marker,cn)
                 optObjR.change_loads(pd,qd)
-                pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs(optObjR)
+                pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs_reduced(optObjR)
                 prob = cyipopt.Problem(**pdk)
                 for k,v in psk.items():
                     prob.add_option(k,v)
@@ -313,7 +324,7 @@ if __name__ == "__main__":
             # calculate first solve for classifier
             optObjR = opfSocpR(this_case,xgboost_marker,cn)
             optObjR.change_loads(pd,qd)
-            pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs(optObjR)
+            pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs_reduced(optObjR)
             prob = cyipopt.Problem(**pdk)
             for k,v in psk.items():
                 prob.add_option(k,v)
@@ -334,10 +345,10 @@ if __name__ == "__main__":
                 xgboost_solves.append(solvesxg)
             else:
                 print(f"Detected {inferred_viols.sum()} violations with objective {obj_rgfirst}.")
-                xgboost_marker = np.where(xgboost_marker+inferred_viols>0,1,0)
+                xgboost_marker = np.concatenate([np.where(xgboost_marker[:nmi_cons_size]+inferred_viols>0,1,0),xgboost_marker[nmi_cons_size:]])
                 optObjR = opfSocpR(this_case,xgboost_marker,cn)
                 optObjR.change_loads(pd,qd)
-                pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs(optObjR)
+                pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs_reduced(optObjR)
                 prob = cyipopt.Problem(**pdk)
                 for k,v in psk.items():
                     prob.add_option(k,v)

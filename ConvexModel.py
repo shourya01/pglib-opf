@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 class ConvexNet(nn.Module):
     
-    def __init__(self, layer_sizes: Tuple, activation = nn.GELU, monotonicity = 1):
+    def __init__(self, layer_sizes: Tuple, activation = nn.GELU, monotonicity = 1, dtype = torch.float32):
         
         super(ConvexNet,self).__init__()
         
@@ -17,8 +17,8 @@ class ConvexNet(nn.Module):
         self.gradBiases = nn.ParameterList()
         
         for idx in range(len(layer_sizes)-1):
-            self.gradWeights.append(nn.Parameter(torch.zeros(layer_sizes_grad[idx+1],layer_sizes_grad[idx])))
-            self.gradBiases.append(nn.Parameter(torch.zeros(layer_sizes_grad[idx+1])))
+            self.gradWeights.append(nn.Parameter(torch.zeros(layer_sizes_grad[idx+1],layer_sizes_grad[idx],dtype=dtype)))
+            self.gradBiases.append(nn.Parameter(torch.zeros(layer_sizes_grad[idx+1],dtype=dtype)))
             
         self.activation = activation()
         

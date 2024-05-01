@@ -20,11 +20,12 @@ UNIQUE_BUS_FILTER = False # todo
 
 class opfSocpR():
 
-    def __init__(self, ppc: Dict, reductions: np.ndarray, casename: str = 'ppc'):
+    def __init__(self, ppc: Dict, reductions: np.ndarray, casename: str = 'ppc', disable_var_presolve = True):
         
         self.casename = casename
         
         self.reductions = reductions
+        self.disable_var_presolve = True
         
         ppc = ext2int(ppc) # convert indices to pypower internal numbering
         self.initSysParams(ppc)
@@ -86,8 +87,10 @@ class opfSocpR():
     def generateIndices(self):
         
         # process reductions
-        assert self.reductions.size == 4*self.n_branch, "Incorrect size of reductions vector"
-        self.idx_ffr, self.idx_ftr, self.idx_aminr, self.idx_amaxr = np.array_split(self.reductions,4)
+        assert self.reductions.size == 4*self.n_branch+2*(self.n_bus + 6*self.n_branch + 2*self.n_gen), "Incorrect size of reductions vector"
+        self.reductions_cons = self.reductions[:4*self.n_branch]
+        self.reductions_vars = self.reductions[4*self.n_branch:]
+        self.idx_ffr, self.idx_ftr, self.idx_aminr, self.idx_amaxr = np.array_split(self.reductions_cons,4)
         
         # input size
         self.in_size = self.n_bus + 6*self.n_branch + 2*self.n_gen
@@ -809,6 +812,18 @@ class opfSocpR():
         ub[self.vidx['iSg']] = self.gen_qmax
         lb[self.vidx['iSg']] = self.gen_qmin
         
+        # fixed variables
+        dual_l, dual_u = np.array_split(self.reductions_vars,2)
+        
+        if self.disable_var_presolve:
+            dual_l, dual_u = np.zeros_like(dual_l), np.zeros_like(dual_u)
+        
+        for idx,(itm_l,itm_u) in enumerate(zip(dual_l,dual_u)):
+            if itm_l == 1 and (itm_l!=itm_u):
+                ub[idx] = lb[idx]
+            if itm_u == 1 and (itm_l!=itm_u):
+                lb[idx] = ub[idx]
+        
         return ub, lb
     
     def calc_x0_flatstart(self):
@@ -834,6 +849,13 @@ class opfSocpR():
         x0[self.vidx['rSg']] = self.gen_pmin
         # react gen
         x0[self.vidx['iSg']] = 0.5*(self.gen_qmin+self.gen_qmax)
+        
+        # fixed variables
+        ub, lb = self.calc_var_bounds()
+        assert ub.size==x0.size, "!!"
+        for idx,(itm_u,itm_l) in enumerate(zip(ub,lb)):
+            if math.isclose(itm_u,itm_l):
+                x0[idx] = 0.5*(itm_u+itm_l)
         
         return x0
     

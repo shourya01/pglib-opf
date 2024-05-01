@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 class ClassifierNet(nn.Module):
     
-    def __init__(self, layer_sizes: Tuple, activation = nn.GELU):
+    def __init__(self, layer_sizes: Tuple, activation = nn.GELU, dtype = torch.float32):
         
         super(ClassifierNet,self).__init__()
         
@@ -17,8 +17,8 @@ class ClassifierNet(nn.Module):
         self.Biases = nn.ParameterList()
         
         for idx in range(len(layer_sizes)-1):
-            self.Weights.append(nn.Parameter(torch.ones(layer_sizes_grad[idx+1],layer_sizes_grad[idx])))
-            self.Biases.append(nn.Parameter(torch.ones(layer_sizes_grad[idx+1])))
+            self.Weights.append(nn.Parameter(torch.ones(layer_sizes_grad[idx+1],layer_sizes_grad[idx],dtype=dtype)))
+            self.Biases.append(nn.Parameter(torch.ones(layer_sizes_grad[idx+1],dtype=dtype)))
             
         self.activation = activation()
             
