@@ -14,6 +14,7 @@ import argparse
 # argument of program to be run
 parser = argparse.ArgumentParser(description="Generate data files.")
 parser.add_argument('--case', type=str, default='pglib_opf_case118_ieee')
+parser.add_argument('--diff', type=float, default=0.5)
 args = parser.parse_args()
 
 # # get octave object
@@ -24,7 +25,7 @@ warnings.simplefilter("ignore", np.ComplexWarning)
 # user options 
 MAX_BUS = 10000 # upper limit of number of buses in cases to be considered
 NUM_POINTS = 5000 # number of data points to save
-DIFF = 0.75 # ratio variation of data
+DIFF = args.diff # ratio variation of data
 
 # main
 
