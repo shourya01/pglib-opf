@@ -1,51 +1,51 @@
 For case pglib_opf_case118_ieee, method: convex, best performance recorded on epoch 250/2000.
-TP: 11.05268, TN: 85.96849, FP: 2.97882, FN: 0.00000, train_time: 10.241413831710815s.
+TP: 11.05268, TN: 85.96849, FP: 2.97882, FN: 0.00000, train_time: 10.655376672744751s.
 For case pglib_opf_case118_ieee, method: classifier, best performance recorded on epoch 1750/2000.
-TP: 10.91704, TN: 88.19574, FP: 0.75158, FN: 0.13565, train_time: 6.912364482879639s.
+TP: 10.91704, TN: 88.19574, FP: 0.75158, FN: 0.13565, train_time: 8.283602476119995s.
 For case pglib_opf_case118_ieee, method: ridge, best performance recorded on epoch 1750/2000.
-TP: 10.70117, TN: 88.64259, FP: 0.30473, FN: 0.35152, train_time: 6.478987216949463s.
+TP: 10.70117, TN: 88.64259, FP: 0.30473, FN: 0.35152, train_time: 6.571723222732544s.
 For case pglib_opf_case118_ieee, method: xgboost.
-TP: 10.42975, TN: 88.94102, FP: 0.00630, FN: 0.62293, train_time: 13.0662100315094s.
+TP: 10.42975, TN: 88.94102, FP: 0.00630, FN: 0.62293, train_time: 13.333718299865723s.
 
 For case pglib_opf_case793_goc, method: convex, best performance recorded on epoch 250/2000.
-TP: 24.64385, TN: 60.28223, FP: 15.07391, FN: 0.00000, train_time: 31.193992614746094s.
+TP: 24.64385, TN: 60.28223, FP: 15.07391, FN: 0.00000, train_time: 28.186620235443115s.
 For case pglib_opf_case793_goc, method: classifier, best performance recorded on epoch 2000/2000.
-TP: 24.12574, TN: 65.52941, FP: 9.82674, FN: 0.51811, train_time: 16.760977029800415s.
+TP: 24.12574, TN: 65.52941, FP: 9.82674, FN: 0.51811, train_time: 17.27496647834778s.
 For case pglib_opf_case793_goc, method: ridge, best performance recorded on epoch 250/2000.
-TP: 23.73147, TN: 66.19936, FP: 9.15679, FN: 0.91238, train_time: 16.121525287628174s.
+TP: 23.73147, TN: 66.19936, FP: 9.15679, FN: 0.91238, train_time: 15.020909547805786s.
 For case pglib_opf_case793_goc, method: xgboost.
-TP: 20.03757, TN: 75.28008, FP: 0.07606, FN: 4.60628, train_time: 90.094970703125s.
+TP: 20.03757, TN: 75.28008, FP: 0.07606, FN: 4.60628, train_time: 90.68527889251709s.
 
 For case pglib_opf_case1354_pegase, method: convex, best performance recorded on epoch 250/2000.
-TP: 9.36783, TN: 89.63319, FP: 0.99898, FN: 0.00000, train_time: 44.916120290756226s.
+TP: 9.36783, TN: 89.63319, FP: 0.99898, FN: 0.00000, train_time: 43.74834966659546s.
 For case pglib_opf_case1354_pegase, method: classifier, best performance recorded on epoch 2000/2000.
-TP: 9.32323, TN: 89.98460, FP: 0.64756, FN: 0.04461, train_time: 26.74472141265869s.
+TP: 9.32323, TN: 89.98460, FP: 0.64756, FN: 0.04461, train_time: 26.852601289749146s.
 For case pglib_opf_case1354_pegase, method: ridge, best performance recorded on epoch 250/2000.
-TP: 9.19064, TN: 90.26208, FP: 0.37008, FN: 0.17719, train_time: 20.159744024276733s.
+TP: 9.19064, TN: 90.26208, FP: 0.37008, FN: 0.17719, train_time: 21.576955556869507s.
 For case pglib_opf_case1354_pegase, method: xgboost.
-TP: 9.31224, TN: 90.63217, FP: 0.00000, FN: 0.05560, train_time: 140.61498999595642s.
+TP: 9.31224, TN: 90.63217, FP: 0.00000, FN: 0.05560, train_time: 143.74706935882568s.
 
 For case pglib_opf_case2312_goc, method: convex, best performance recorded on epoch 250/2000.
-TP: 10.85345, TN: 86.01868, FP: 3.12786, FN: 0.00000, train_time: 63.66744351387024s.
+TP: 10.85345, TN: 86.01868, FP: 3.12786, FN: 0.00000, train_time: 69.84349989891052s.
 For case pglib_opf_case2312_goc, method: classifier, best performance recorded on epoch 1750/2000.
-TP: 10.71725, TN: 87.72669, FP: 1.41986, FN: 0.13620, train_time: 40.91021275520325s.
+TP: 10.71725, TN: 87.72669, FP: 1.41986, FN: 0.13620, train_time: 42.863595962524414s.
 For case pglib_opf_case2312_goc, method: ridge, best performance recorded on epoch 250/2000.
-TP: 10.50485, TN: 88.22566, FP: 0.92089, FN: 0.34861, train_time: 36.565131425857544s.
+TP: 10.50485, TN: 88.22566, FP: 0.92089, FN: 0.34861, train_time: 39.472116470336914s.
 For case pglib_opf_case2312_goc, method: xgboost.
-TP: 9.92900, TN: 89.13799, FP: 0.00855, FN: 0.92446, train_time: 404.45080065727234s.
+TP: 9.92900, TN: 89.13799, FP: 0.00855, FN: 0.92446, train_time: 408.372670173645s.
 
 For case pglib_opf_case4601_goc, method: convex, best performance recorded on epoch 250/2000.
-TP: 35.28230, TN: 51.02763, FP: 13.69006, FN: 0.00000, train_time: 147.20509243011475s.
+TP: 33.67320, TN: 50.06428, FP: 16.26252, FN: 0.00000, train_time: 136.24347162246704s.
 For case pglib_opf_case4601_goc, method: classifier, best performance recorded on epoch 1750/2000.
-TP: 35.19236, TN: 51.82883, FP: 12.88887, FN: 0.08994, train_time: 84.61587357521057s.
+TP: 33.49280, TN: 51.77408, FP: 14.55272, FN: 0.18041, train_time: 70.98959946632385s.
 For case pglib_opf_case4601_goc, method: ridge, best performance recorded on epoch 250/2000.
-TP: 35.20793, TN: 51.79675, FP: 12.92095, FN: 0.07438, train_time: 104.16109299659729s.
+TP: 33.45736, TN: 51.83863, FP: 14.48817, FN: 0.21584, train_time: 93.05129623413086s.
 For case pglib_opf_case4601_goc, method: xgboost.
-TP: 32.86207, TN: 63.20060, FP: 1.51710, FN: 2.42024, train_time: 2094.8334650993347s.
+TP: 31.04029, TN: 65.99422, FP: 0.33258, FN: 2.63292, train_time: 1860.0780098438263s.
 
 For case pglib_opf_case10000_goc, method: convex, best performance recorded on epoch 250/2000.
-TP: 22.36272, TN: 64.74083, FP: 12.89645, FN: 0.00000, train_time: 270.61032581329346s.
-For case pglib_opf_case10000_goc, method: classifier, best performance recorded on epoch 2000/2000.
-TP: 22.31160, TN: 65.30856, FP: 12.32872, FN: 0.05112, train_time: 172.4335904121399s.
+TP: 23.22798, TN: 63.05613, FP: 13.71589, FN: 0.00000, train_time: 267.0026092529297s.
+For case pglib_opf_case10000_goc, method: classifier, best performance recorded on epoch 1750/2000.
+TP: 23.06382, TN: 65.20891, FP: 11.56311, FN: 0.16416, train_time: 165.8941354751587s.
 For case pglib_opf_case10000_goc, method: ridge, best performance recorded on epoch 250/2000.
-TP: 22.33024, TN: 65.25054, FP: 12.38674, FN: 0.03248, train_time: 290.3097138404846s.
+TP: 23.05479, TN: 65.23084, FP: 11.54118, FN: 0.17320, train_time: 288.0513582229614s.

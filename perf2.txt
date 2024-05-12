@@ -1,66 +1,66 @@
-For case pglib_opf_case118_ieee, solved 20 test cases:
-full problem average solve time: 0.16928528547286986
-reduced problem average solve time (convex): 0.11541916131973266
+For case pglib_opf_case118_ieee, solved 30 test cases:
+full problem average solve time: 0.11121942202250162
+reduced problem average solve time (convex): 0.07871526082356771
 reduced problem average solves (convex): 1.0.
-reduced problem average solve time (classifier): 0.16927772760391235
-reduced problem average solves (classifier): 1.45.
-reduced problem average solve time (ridge): 0.19402551651000977
-reduced problem average solves (ridge): 1.65.
-reduced problem average solve time (xgboost): 0.21069408655166627
-reduced problem average solves (xgboost): 1.8.
+reduced problem average solve time (classifier): 0.11669142246246338
+reduced problem average solves (classifier): 1.4666666666666666.
+reduced problem average solve time (ridge): 0.13358072439829508
+reduced problem average solves (ridge): 1.6666666666666667.
+reduced problem average solve time (xgboost): 0.14042048454284667
+reduced problem average solves (xgboost): 1.7666666666666666.
 
-For case pglib_opf_case793_goc, solved 20 test cases:
-full problem average solve time: 1.6113576531410216
-reduced problem average solve time (convex): 1.4020418882369996
+For case pglib_opf_case793_goc, solved 30 test cases:
+full problem average solve time: 1.0578555345535279
+reduced problem average solve time (convex): 0.8572109540303549
 reduced problem average solves (convex): 1.0.
-reduced problem average solve time (classifier): 2.2952836871147158
-reduced problem average solves (classifier): 1.7.
-reduced problem average solve time (ridge): 2.704049754142761
+reduced problem average solve time (classifier): 1.4327222983042398
+reduced problem average solves (classifier): 1.7333333333333334.
+reduced problem average solve time (ridge): 1.6492775360743204
 reduced problem average solves (ridge): 2.0.
-reduced problem average solve time (xgboost): 2.294076144695282
-reduced problem average solves (xgboost): 1.9.
+reduced problem average solve time (xgboost): 1.4568617900212606
+reduced problem average solves (xgboost): 1.9333333333333333.
 
-For case pglib_opf_case1354_pegase, solved 20 test cases:
-full problem average solve time: 6.9882481575012205
-reduced problem average solve time (convex): 3.1288238406181335
+For case pglib_opf_case1354_pegase, solved 30 test cases:
+full problem average solve time: 3.693026320139567
+reduced problem average solve time (convex): 1.9340603272120158
 reduced problem average solves (convex): 1.0.
-reduced problem average solve time (classifier): 6.02954752445221
-reduced problem average solves (classifier): 1.95.
-reduced problem average solve time (ridge): 6.176932561397552
+reduced problem average solve time (classifier): 3.7026788632074994
+reduced problem average solves (classifier): 1.9333333333333333.
+reduced problem average solve time (ridge): 3.817197394371033
 reduced problem average solves (ridge): 2.0.
-reduced problem average solve time (xgboost): 6.241760671138763
+reduced problem average solve time (xgboost): 3.8400106906890867
 reduced problem average solves (xgboost): 2.0.
 
-For case pglib_opf_case2312_goc, solved 20 test cases:
-full problem average solve time: 9.098660504817962
-reduced problem average solve time (convex): 6.264972686767578
+For case pglib_opf_case2312_goc, solved 30 test cases:
+full problem average solve time: 6.131477522850036
+reduced problem average solve time (convex): 3.917388741175334
 reduced problem average solves (convex): 1.0.
-reduced problem average solve time (classifier): 12.36608784198761
+reduced problem average solve time (classifier): 7.680750052134196
 reduced problem average solves (classifier): 2.0.
-reduced problem average solve time (ridge): 12.288036382198333
+reduced problem average solve time (ridge): 7.593445722262064
 reduced problem average solves (ridge): 2.0.
-reduced problem average solve time (xgboost): 12.236727178096771
+reduced problem average solve time (xgboost): 7.501471749941508
 reduced problem average solves (xgboost): 2.0.
 
-For case pglib_opf_case4601_goc, solved 20 test cases:
-full problem average solve time: 21.83583747148514
-reduced problem average solve time (convex): 18.4793270945549
+For case pglib_opf_case4601_goc, solved 30 test cases:
+full problem average solve time: 16.12056759198507
+reduced problem average solve time (convex): 12.712906988461812
 reduced problem average solves (convex): 1.0.
-reduced problem average solve time (classifier): 19.32679890394211
-reduced problem average solves (classifier): 1.05.
-reduced problem average solve time (ridge): 19.33708897829056
-reduced problem average solves (ridge): 1.05.
-reduced problem average solve time (xgboost): 17.008190429210664
-reduced problem average solves (xgboost): 1.0.
+reduced problem average solve time (classifier): 18.4689436117808
+reduced problem average solves (classifier): 1.4666666666666666.
+reduced problem average solve time (ridge): 19.890502842267356
+reduced problem average solves (ridge): 1.5666666666666667.
+reduced problem average solve time (xgboost): 16.535857558250427
+reduced problem average solves (xgboost): 1.4333333333333333.
 
-For case pglib_opf_case10000_goc, solved 20 test cases:
-full problem average solve time: 49.301063096523286
-reduced problem average solve time (convex): 41.66894835233688
+For case pglib_opf_case10000_goc, solved 30 test cases:
+full problem average solve time: 32.4957763115565
+reduced problem average solve time (convex): 26.213618914286297
 reduced problem average solves (convex): 1.0.
-reduced problem average solve time (classifier): 61.83813201189041
-reduced problem average solves (classifier): 1.5.
-reduced problem average solve time (ridge): 57.83293452262878
-reduced problem average solves (ridge): 1.4.
-reduced problem average solve time (xgboost): 47.80835121870041
+reduced problem average solve time (classifier): 50.93992943763733
+reduced problem average solves (classifier): 1.9333333333333333.
+reduced problem average solve time (ridge): 50.91015028953552
+reduced problem average solves (ridge): 1.9333333333333333.
+reduced problem average solve time (xgboost): 30.86510218779246
 reduced problem average solves (xgboost): 1.0.
 
