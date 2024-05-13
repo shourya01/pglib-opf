@@ -137,7 +137,7 @@ if __name__ == "__main__":
                 bind.append(cur_bind)
                 rank.append(cur_rank)
                 pqdiff.append(cur_pqdiff)
-                t.set_description(f"Problem {pt_idx} solved! Binding: {cur_bind}, rank = {cur_rank}, pqdiff = {cur_pqdiff}.")
+                t.set_description(f"Problem {pt_idx} solved! Process ({mpi_rank+1}/{mpi_size}) Binding: {cur_bind}, rank = {cur_rank}, pqdiff = {cur_pqdiff}.")
                 
             else:
                 
