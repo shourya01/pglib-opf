@@ -9,7 +9,7 @@ from typing import List, Dict
 from cyipopt import CyIpoptEvaluationError as CEE
 import cProfile
 from scipy.sparse import csr_matrix, lil_matrix
-from scipy.sparse.linalg import svds
+from scipy.linalg import svd
 from copy import deepcopy
 
 import warnings
@@ -821,27 +821,34 @@ class opfSocp():
     
     def get_num_binding_constr(self, x, tol = None):
         
-        constr = self.const_not_loads + self.linear_fac.dot(x).ravel() + self.sq_fac.dot(np.square(x)).ravel() \
-            + (self.bi1_fac.dot(x) * self.bi2_fac.dot(x)).ravel() - self.loads_for_cons
-            
         if tol is None:
-            tol = 0
-            
-        return np.where(np.clip(self.constraints(x)-tol, a_min=0, a_max = None)>0,1,0).astype(int)
+            tol = 1e-6
+        
+        constr = self.constraints(x)[self.is_model.astype(bool)]
+        
+        return np.where(np.abs(constr)<tol,1,0).astype(int).sum()
+    
+    def get_binding_constr(self, x, tol = None):
+        
+        if tol is None:
+            tol = 1e-6
+        
+        constr = self.constraints(x)[self.is_model.astype(bool)]
+        
+        return np.where(np.abs(constr)<tol,1,0).astype(bool)
     
     def get_rank_partial_jacobian(self, x, tol = None):
         
-        nonmodel_inequality = ((1-self.is_model)*(1-self.is_equality)).astype(int)
         this_jac = self.jacobian(x)
         
         jac = csr_matrix((this_jac,self.jacidx),shape=(self.cons_size,self.in_size))
-        reduced_jac = jac[nonmodel_inequality.astype(bool)]
-        reduced_jac_sz = (nonmodel_inequality.sum(),self.in_size)
+        reduced_jac = jac[self.is_model.astype(bool)]
+        reduced_jac = reduced_jac[self.get_binding_constr(x,tol)]
         
-        _, s, _ = svds(reduced_jac,k=reduced_jac_sz[0])
+        _, s, _ = svd(reduced_jac.todense(),full_matrices=False)
         
         if tol is None:
-            tol = 0
+            tol = 1e-6
         
         return np.sum(s > tol)
     

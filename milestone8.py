@@ -6,8 +6,7 @@ import warnings
 from tqdm import trange
 from pypower.ext2int import ext2int
 from pypower.api import loadcase
-from problemDefJITM import opfSocp
-from problemDefJITMargin import opfSocpMargin
+from problemDefJITMRank import opfSocp
 from mpi4py import MPI
 import argparse
 
@@ -26,6 +25,7 @@ warnings.simplefilter("ignore", np.ComplexWarning)
 MAX_BUS = 10000 # upper limit of number of buses in cases to be considered
 NUM_POINTS = 100 # number of data points to save
 DIFF = args.diff # ratio variation of data
+TOL = 1E-4 # tolerances of data
 
 # main
 
@@ -36,7 +36,7 @@ if __name__ == "__main__":
         'pglib_opf_case118_ieee':0.75,
         'pglib_opf_case793_goc':0.75,
         'pglib_opf_case1354_pegase':0.75,
-        'pglib_opf_case2869_pegase':0.75,
+        'pglib_opf_case2312_goc':0.75,
         'pglib_opf_case4601_goc':1.5,
         'pglib_opf_case10000_goc':1.5
     }
@@ -99,6 +99,7 @@ if __name__ == "__main__":
         prob.add_option('mumps_mem_percent',25000)
         prob.add_option('mu_max',1e+1) 
         prob.add_option('mu_init',1e+1)
+        prob.add_option('print_level',0) 
         prob.add_option('max_iter',300)
         
         # Solve ipopt problem
@@ -116,11 +117,13 @@ if __name__ == "__main__":
         prob.add_option('max_iter',300)
         
         # generate points
+        if cn == 'pglib_opf_case1354_pegase':
+            NUM_POINTS = int(10*NUM_POINTS)
         bind, rank, pqdiff = [], [], []
         for pt_idx in (t:=trange(NUM_POINTS)):
             
             # set random seed
-            np.random.seed(pt_idx)
+            np.random.seed(pt_idx*(mpi_rank+1)*3745)
             
             # get pd, qd and perturb
             pd,qd = optObj.get_loads()
@@ -129,19 +132,20 @@ if __name__ == "__main__":
             optObj.change_loads(dpd,dqd)
 
             # solve problem
-            _, info = prob.solve(info_base['x'],lagrange=info_base['mult_g'].tolist(),zl=info_base['mult_x_L'].tolist(),zu=info_base['mult_x_U'].tolist())
+            x, info = prob.solve(info_base['x'],lagrange=info_base['mult_g'].tolist(),zl=info_base['mult_x_L'].tolist(),zu=info_base['mult_x_U'].tolist())
             if info['status'] == 0:
-                cur_bind = optObj.get_num_binding_constr(x)
-                cur_rank = optObj.get_rank_partial_jacobian(x)
+                cur_bind = optObj.get_num_binding_constr(x,tol=TOL)
+                # cur_rank = optObj.get_rank_partial_jacobian(x,tol=TOL)
+                cur_rank = optObj.get_num_binding_constr(x,tol=TOL)
                 cur_pqdiff = optObj.get_load_diff_norm(ord = 1)
                 bind.append(cur_bind)
                 rank.append(cur_rank)
                 pqdiff.append(cur_pqdiff)
-                t.set_description(f"Problem {pt_idx} solved! Process ({mpi_rank+1}/{mpi_size}) Binding: {cur_bind}, rank = {cur_rank}, pqdiff = {cur_pqdiff}.")
+                t.set_description(f"Case {cn}, problem {pt_idx} solved! Process ({mpi_rank+1}/{mpi_size}) Binding: {cur_bind}, rank = {cur_rank}, pqdiff = {cur_pqdiff}.")
                 
             else:
                 
-                t.set_description(f"Problem {pt_idx} was not solved. :(")
+                t.set_description(f"Case {cn}, problem {pt_idx} was not solved. :(")
             
         # save data
         os.makedirs(os.getcwd()+f'/data3',exist_ok=True)
