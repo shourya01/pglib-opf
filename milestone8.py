@@ -24,7 +24,7 @@ warnings.simplefilter("ignore", np.ComplexWarning)
 
 # user options 
 MAX_BUS = 10000 # upper limit of number of buses in cases to be considered
-NUM_POINTS = 500 # number of data points to save
+NUM_POINTS = 100 # number of data points to save
 DIFF = args.diff # ratio variation of data
 
 # main
