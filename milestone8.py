@@ -145,6 +145,6 @@ if __name__ == "__main__":
             
         # save data
         os.makedirs(os.getcwd()+f'/data3',exist_ok=True)
-        if len(input_data) > 0:
+        if len(bind) > 0:
             rankdata = np.array([bind,rank,pqdiff])
             np.savez_compressed(os.getcwd()+f'/data3/{cn}_rankdata.npz',data=rankdata)
