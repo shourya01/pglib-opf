@@ -35,7 +35,7 @@ if __name__ == "__main__":
     default_diffs = {
         'pglib_opf_case118_ieee':0.75,
         'pglib_opf_case793_goc':0.75,
-        'pglib_opf_case1354_pegase':0.75
+        'pglib_opf_case1354_pegase':0.75,
         'pglib_opf_case2869_pegase':0.75,
         'pglib_opf_case4601_goc':1.5,
         'pglib_opf_case10000_goc':1.5
