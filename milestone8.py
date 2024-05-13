@@ -33,10 +33,10 @@ if __name__ == "__main__":
     
     # sort out the difference value
     default_diffs = {
-        'pglib_opf_case118_ieee':0.75,
-        'pglib_opf_case793_goc':0.75,
-        'pglib_opf_case1354_pegase':0.75,
-        'pglib_opf_case2312_goc':0.75,
+        'pglib_opf_case118_ieee':1.5,
+        'pglib_opf_case793_goc':1.5,
+        'pglib_opf_case1354_pegase':1.5,
+        'pglib_opf_case2312_goc':1.5,
         'pglib_opf_case4601_goc':1.5,
         'pglib_opf_case10000_goc':1.5
     }

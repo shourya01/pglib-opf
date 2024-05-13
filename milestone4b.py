@@ -14,7 +14,7 @@ import argparse
 # argument of program to be run
 parser = argparse.ArgumentParser(description="Generate data files.")
 parser.add_argument('--case', type=str, default='pglib_opf_case118_ieee')
-parser.add_argument('--diff', type=float, default=0.5)
+parser.add_argument('--diff', type=float, default=-0.5)
 args = parser.parse_args()
 
 # # get octave object
@@ -30,6 +30,15 @@ DIFF = args.diff # ratio variation of data
 # main
 
 if __name__ == "__main__":
+    
+    default_diffs = {
+        'pglib_opf_case118_ieee':1.5,
+        'pglib_opf_case793_goc':1.5,
+        'pglib_opf_case1354_pegase':1.5,
+        'pglib_opf_case2312_goc':1.5,
+        'pglib_opf_case4601_goc':1.5,
+        'pglib_opf_case10000_goc':1.5
+    }
     
     # get mpi rank
     comm = MPI.COMM_WORLD
@@ -65,6 +74,10 @@ if __name__ == "__main__":
             
     # solve
     for cn,this_case in zip(casenames,cases):
+        
+        if args.diff < 0:
+            args.diff = default_diffs[cn]
+        
         optObj = opfSocp(this_case,cn)
         cub, clb = optObj.calc_cons_bounds()
         xub, xlb = optObj.calc_var_bounds()
@@ -106,7 +119,7 @@ if __name__ == "__main__":
         for pt_idx in (t:=trange(NUM_POINTS)):
             
             # set random seed
-            np.random.seed(pt_idx)
+            np.random.seed(pt_idx*(mpi_rank+1)*3745)
             
             # get pd, qd and perturb
             pd,qd = optObj.get_loads()
