@@ -845,6 +845,13 @@ class opfSocp():
         
         return np.sum(s > tol)
     
+    def get_load_diff_norm(self, ord = 1):
+        
+        p_diff = self.bus_pd - self._bus_pd
+        q_diff = self.bus_qd - self._bus_qd
+        
+        return np.linalg.norm(p_diff,ord=ord) + np.linalg.norm(q_diff,ord=ord)
+    
     def refresh_loads_for_constr(self):
         
         pd, qd = [], []
