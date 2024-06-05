@@ -13,6 +13,7 @@ from utils import make_data_parallel
 from tqdm import tqdm, trange
 from itertools import zip_longest
 import gc
+from mpi4py import MPI
 from time import time
 from ConvexModel import ConvexNet
 from ClassifierModel import ClassifierNet
@@ -26,7 +27,7 @@ from sklearn.linear_model import RidgeClassifier
 octave = Oct2Py()
 dir_name = 'data/'
 MAX_BUS = 10000
-NUM_SOLVES = 30
+NUM_SOLVES = 50
 VIOL_THRES = 1e-5
 
 if __name__ == "__main__":
@@ -36,7 +37,9 @@ if __name__ == "__main__":
     # current_directory = '/home/sbose/pglib-opf/' # for running on BEBOP
     all_files_and_directories = os.listdir(current_directory)
     # three specific cases
-    case_files = [current_directory+i for i in ['pglib_opf_case118_ieee.m','pglib_opf_case793_goc.m','pglib_opf_case1354_pegase.m','pglib_opf_case2312_goc.m','pglib_opf_case4601_goc.m','pglib_opf_case10000_goc.m']]
+    case_files = [current_directory+i for i in ['pglib_opf_case118_ieee.m','pglib_opf_case793_goc.m'
+                                                ,'pglib_opf_case1354_pegase.m'
+                                                ,'pglib_opf_case2312_goc.m','pglib_opf_case4601_goc.m','pglib_opf_case10000_goc.m']]
     # case_files = [current_directory+i for i in ['pglib_opf_case2312_goc.m','pglib_opf_case10000_goc.m']]
     # case_files = [current_directory+i for i in ['pglib_opf_case2312_goc.m',"pglib_opf_case4601_goc.m"]]
 
@@ -58,9 +61,6 @@ if __name__ == "__main__":
             # append
             cases.append(case_correct_idx)
             casenames.append(cname)
-            
-    # write
-    logfile = open('perf2.txt','w')
             
     # define kwargs
     problem_settings_kwargs = lambda obj:{
@@ -89,6 +89,16 @@ if __name__ == "__main__":
         'cl':cons_lb,
         'cu':cons_ub
     }
+    
+    # to distribute across MPI process
+    comm = MPI.COMM_WORLD
+    mpi_rank = comm.Get_rank()
+    mpi_size = comm.Get_size()
+    pt_split = np.array_split(np.arange(NUM_SOLVES),mpi_size)
+    this_split = pt_split[mpi_rank]
+    if mpi_rank == 0:
+        # write
+        logfile = open('perf2.txt','w')
             
     for cn,this_case in zip(casenames,cases):
         
@@ -125,6 +135,10 @@ if __name__ == "__main__":
         optObj = opfSocp(this_case,cn)
         
         for sidx in range(NUM_SOLVES):
+            
+            # mpi
+            if sidx not in this_split:
+                continue
             
             # extract input and dual data and create reduced solve obj
             pd,qd = inp_data[sidx,:optObj.n_bus], inp_data[sidx,optObj.n_bus:2*(optObj.n_bus)]
@@ -346,32 +360,103 @@ if __name__ == "__main__":
                 xgboost_times.append(timexg)
                 xgboost_solves.append(solvesxg)
                 
+        full_times = np.array(full_times)
+        convex_times, convex_solves = np.array(convex_times), np.array(convex_solves)
+        classifier_times, classifier_solves = np.array(classifier_times), np.array(classifier_solves)
+        ridge_times, ridge_solves = np.array(ridge_times), np.array(ridge_solves)
+        xgboost_times, xgboost_solves = np.array(xgboost_times), np.array(xgboost_solves)
+        
+        if mpi_rank == 0:
+            sz = []
+            # sz.append(np.array(full_times.size,dtype=int))
+            for rk in range(mpi_size-1):
+                this_sz = np.array(full_times.size,dtype=int)
+                comm.Recv([this_sz,MPI.INT],source=rk+1,tag=500)
+                sz.append(this_sz)
+        else:
+            comm.Send([np.array(full_times.size,dtype=int),MPI.INT],dest=0,tag=500)
+            
+        if mpi_rank == 0:
+            ftimes, ctimes, cltimes, rtimes, xtimes = [full_times], [convex_times], [classifier_times], [ridge_times], [xgboost_times]
+            csolves, clsolves, rsolves, xsolves = [convex_solves], [classifier_solves], [ridge_solves], [xgboost_solves]
+            for rk in range(mpi_size-1):
+                this_data1 = np.empty(sz[rk],dtype=np.float64)
+                comm.Recv([this_data1,MPI.DOUBLE],source=rk+1,tag=0)
+                ftimes.append(this_data1)
+                this_data2 = np.empty(sz[rk],dtype=np.float64)
+                comm.Recv([this_data2,MPI.DOUBLE],source=rk+1,tag=1)
+                ctimes.append(this_data2)
+                this_data3 = np.empty(sz[rk],dtype=np.float64)
+                comm.Recv([this_data3,MPI.DOUBLE],source=rk+1,tag=2)
+                cltimes.append(this_data3)
+                this_data4 = np.empty(sz[rk],dtype=np.float64)
+                comm.Recv([this_data4,MPI.DOUBLE],source=rk+1,tag=3)
+                rtimes.append(this_data4)
+                this_data5 = np.empty(sz[rk],dtype=np.float64)
+                comm.Recv([this_data5,MPI.DOUBLE],source=rk+1,tag=4)
+                xtimes.append(this_data5)
+                this_data6 = np.empty(sz[rk],dtype=np.float64)
+                comm.Recv([this_data6,MPI.DOUBLE],source=rk+1,tag=5)
+                csolves.append(this_data6)
+                this_data7 = np.empty(sz[rk],dtype=np.float64)
+                comm.Recv([this_data7,MPI.DOUBLE],source=rk+1,tag=6)
+                clsolves.append(this_data7)
+                this_data8 = np.empty(sz[rk],dtype=np.float64)
+                comm.Recv([this_data8,MPI.DOUBLE],source=rk+1,tag=7)
+                rsolves.append(this_data8)
+                this_data9 = np.empty(sz[rk],dtype=np.float64)
+                comm.Recv([this_data9,MPI.DOUBLE],source=rk+1,tag=8)
+                xsolves.append(this_data9)
+        else:
+            comm.Send([full_times,MPI.DOUBLE],dest=0,tag=0)
+            comm.Send([convex_times,MPI.DOUBLE],dest=0,tag=1)
+            comm.Send([classifier_times,MPI.DOUBLE],dest=0,tag=2)
+            comm.Send([ridge_times,MPI.DOUBLE],dest=0,tag=3)
+            comm.Send([xgboost_times,MPI.DOUBLE],dest=0,tag=4)
+            comm.Send([convex_solves.astype(np.float64),MPI.DOUBLE],dest=0,tag=5)
+            comm.Send([classifier_solves.astype(np.float64),MPI.DOUBLE],dest=0,tag=6)
+            comm.Send([ridge_solves.astype(np.float64),MPI.DOUBLE],dest=0,tag=7)
+            comm.Send([xgboost_solves.astype(np.float64),MPI.DOUBLE],dest=0,tag=8)    
+                    
                 
-        # print stats
-        print(
-                (f"For case {cn}, solved {NUM_SOLVES} test cases:\n"
-                f"full problem average solve time: {np.array(full_times).mean()}"
-                f"\nreduced problem average solve time (convex): {np.array(convex_times).mean()}"
-                f"\nreduced problem average solves (convex): {np.array(convex_solves).mean()}."
-                f"\nreduced problem average solve time (classifier): {np.array(classifier_times).mean()}"
-                f"\nreduced problem average solves (classifier): {np.array(classifier_solves).mean()}."
-                f"\nreduced problem average solve time (ridge): {np.array(ridge_times).mean()}"
-                f"\nreduced problem average solves (ridge): {np.array(ridge_solves).mean()}."
-                f"\nreduced problem average solve time (xgboost): {np.array(xgboost_times).mean()}"
-                f"\nreduced problem average solves (xgboost): {np.array(xgboost_solves).mean()}.\n\n")
+        if mpi_rank == 0:        
+            full_times = np.concatenate(ftimes)
+            convex_times = np.concatenate(ctimes)
+            classifier_times = np.concatenate(cltimes)
+            ridge_times = np.concatenate(rtimes)
+            xgboost_times = np.concatenate(xtimes)
+            convex_solves = np.concatenate(csolves)
+            classifier_solves = np.concatenate(clsolves)
+            ridge_solves = np.concatenate(rsolves)
+            xgboost_solves = np.concatenate(xsolves)
+            print(f"Convex solves: {convex_solves}, classifier_solves: {classifier_solves}, ridge_solves: {ridge_solves}, xgboost_solves: {xgboost_solves}.")
+            # print stats
+            print(
+                    (f"For case {cn}, solved {NUM_SOLVES} test cases:\n"
+                    f"full problem average solve time: {np.array(full_times[full_times!=0]).mean()}"
+                    f"\nreduced problem average solve time (convex): {np.array(convex_times[convex_times!=0]).mean()}"
+                    f"\nreduced problem average solves (convex): {np.array(convex_solves[convex_solves!=0]).mean()}."
+                    f"\nreduced problem average solve time (classifier): {np.array(classifier_times[classifier_times!=0]).mean()}"
+                    f"\nreduced problem average solves (classifier): {np.array(classifier_solves[classifier_solves!=0]).mean()}."
+                    f"\nreduced problem average solve time (ridge): {np.array(ridge_times[ridge_times!=0]).mean()}"
+                    f"\nreduced problem average solves (ridge): {np.array(ridge_solves[ridge_solves!=0]).mean()}."
+                    f"\nreduced problem average solve time (xgboost): {np.array(xgboost_times[xgboost_times!=0]).mean()}"
+                    f"\nreduced problem average solves (xgboost): {np.array(xgboost_solves[xgboost_solves!=0]).mean()}.\n\n")
+                ,flush=True)
+            logfile.write(
+                    (f"For case {cn}, solved {NUM_SOLVES} test cases:\n"
+                    f"full problem average solve time: {np.array(full_times[full_times!=0]).mean()}"
+                    f"\nreduced problem average solve time (convex): {np.array(convex_times[convex_times!=0]).mean()}"
+                    f"\nreduced problem average solves (convex): {np.array(convex_solves[convex_solves!=0]).mean()}."
+                    f"\nreduced problem average solve time (classifier): {np.array(classifier_times[classifier_times!=0]).mean()}"
+                    f"\nreduced problem average solves (classifier): {np.array(classifier_solves[classifier_solves!=0]).mean()}."
+                    f"\nreduced problem average solve time (ridge): {np.array(ridge_times[ridge_times!=0]).mean()}"
+                    f"\nreduced problem average solves (ridge): {np.array(ridge_solves[ridge_solves!=0]).mean()}."
+                    f"\nreduced problem average solve time (xgboost): {np.array(xgboost_times[xgboost_times!=0]).mean()}"
+                    f"\nreduced problem average solves (xgboost): {np.array(xgboost_solves[xgboost_solves!=0]).mean()}.\n\n")
             )
-        logfile.write(
-                (f"For case {cn}, solved {NUM_SOLVES} test cases:\n"
-                f"full problem average solve time: {np.array(full_times).mean()}"
-                f"\nreduced problem average solve time (convex): {np.array(convex_times).mean()}"
-                f"\nreduced problem average solves (convex): {np.array(convex_solves).mean()}."
-                f"\nreduced problem average solve time (classifier): {np.array(classifier_times).mean()}"
-                f"\nreduced problem average solves (classifier): {np.array(classifier_solves).mean()}."
-                f"\nreduced problem average solve time (ridge): {np.array(ridge_times).mean()}"
-                f"\nreduced problem average solves (ridge): {np.array(ridge_solves).mean()}."
-                f"\nreduced problem average solve time (xgboost): {np.array(xgboost_times).mean()}"
-                f"\nreduced problem average solves (xgboost): {np.array(xgboost_solves).mean()}.\n\n")
-        )
-    logfile.close()
+        comm.Barrier()
+    if mpi_rank == 0:
+        logfile.close()
         
         
