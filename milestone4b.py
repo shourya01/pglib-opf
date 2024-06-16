@@ -24,27 +24,35 @@ warnings.simplefilter("ignore", np.ComplexWarning)
 
 # user options 
 MAX_BUS = 10000 # upper limit of number of buses in cases to be considered
-NUM_POINTS = 5000 # number of data points to save
+NUM_POINTS_INIT = 1000 # number of data points to generate initial set
+NUM_POINTS_CONVEX = 3000 # number of convex hull points to generate
 DIFF = args.diff # ratio variation of data
+
+# random convex combination of weights of an array
+def random_convex_combination(arr):
+    weights = np.random.rand(arr.shape[0])
+    weights /= weights.sum()
+    return np.dot(weights, arr)
 
 # main
 
 if __name__ == "__main__":
     
     default_diffs = {
-        'pglib_opf_case118_ieee':1.5,
-        'pglib_opf_case793_goc':1.5,
-        'pglib_opf_case1354_pegase':1.5,
-        'pglib_opf_case2312_goc':1.5,
-        'pglib_opf_case4601_goc':1.5,
-        'pglib_opf_case10000_goc':1.5
+        'pglib_opf_case118_ieee':0.75,
+        'pglib_opf_case793_goc':0.75,
+        'pglib_opf_case1354_pegase':0.75,
+        'pglib_opf_case2312_goc':0.75,
+        'pglib_opf_case4601_goc':0.75,
+        'pglib_opf_case10000_goc':0.75
     }
     
     # get mpi rank
     comm = MPI.COMM_WORLD
     mpi_rank = comm.Get_rank()
     mpi_size = comm.Get_size()
-    NUM_POINTS = NUM_POINTS // mpi_size
+    NUM_POINTS = NUM_POINTS_INIT // mpi_size
+    NUM_POINTS_2 = NUM_POINTS_CONVEX // mpi_size
     
     # get all cases in current directory
     current_directory = os.getcwd()+'/'
@@ -98,6 +106,7 @@ if __name__ == "__main__":
         prob.add_option('mumps_mem_percent',25000)
         prob.add_option('mu_max',1e+1) 
         prob.add_option('mu_init',1e+1)
+        prob.add_option('print_level',0) 
         prob.add_option('max_iter',300)
         
         # Solve ipopt problem
@@ -115,11 +124,11 @@ if __name__ == "__main__":
         prob.add_option('max_iter',300)
         
         # generate points
-        input, duals = [], []
+        input_x_1, duals_1 = [], []
         for pt_idx in (t:=trange(NUM_POINTS)):
             
             # set random seed
-            np.random.seed(pt_idx*(mpi_rank+1)*3745)
+            np.random.seed(int((pt_idx+1.21)*(mpi_rank+1.63)*(3745.99564)))
             
             # get pd, qd and perturb
             pd,qd = optObj.get_loads()
@@ -130,16 +139,47 @@ if __name__ == "__main__":
             # solve problem
             _, info = prob.solve(info_base['x'],lagrange=info_base['mult_g'].tolist(),zl=info_base['mult_x_L'].tolist(),zu=info_base['mult_x_U'].tolist())
             if info['status'] == 0:
-                input_data = {'pd':dpd,'qd':dqd,'flow_lim_f':np.zeros_like(optObj.flow_lim),'flow_lim_t':np.zeros_like(optObj.flow_lim),'angmin':np.zeros_like(optObj.angmin),'angmax':np.zeros_like(optObj.angmax)}
-                input.append(np.concatenate([itm[1] for itm in input_data.items()]+[np.zeros_like(xlb),np.zeros_like(xub)],axis=0))
-                dual = np.concatenate([info['mult_g'][np.concatenate([optObj.cidx[consn] for consn in ['balance_real','balance_reac','flow_f','flow_t','angmin','angmax']])],info['mult_x_L'],info['mult_x_U']],axis=0)
-                duals.append(dual)
+                input_x_data = {'pd':dpd,'qd':dqd,'flow_lim_f':optObj.flow_lim,'flow_lim_t':optObj.flow_lim}
+                input_x_1.append(np.concatenate([itm[1] for itm in input_x_data.items()]+[np.zeros_like(xlb),np.zeros_like(xub)],axis=0))
+                dual = info['mult_g'][np.concatenate([optObj.cidx[consn] for consn in ['balance_real','balance_reac','flow_f','flow_t']])]
+                duals_1.append(dual)
             
             # output status
-            t.set_description(f"Status of point {pt_idx} is {info['status']}. Process ({mpi_rank}/{mpi_size}).")
+            t.set_description(f"Initial solve, point: {pt_idx+1}/{NUM_POINTS}, status: {info['status']}, process: ({mpi_rank+1}/{mpi_size}).")
+            
+        # generate convex hull points
+        concat_params = np.array(input_x_1)
+        
+        # generate convex hull points
+        input_x_2, duals_2 = [], []
+        if concat_params.shape[0] != 0:
+            for pt_idx in (t:=trange(NUM_POINTS_2)):
+                
+                # set random seed
+                np.random.seed(int((pt_idx+1.66)*(mpi_rank+1.21)*(3745.6634)))
+                
+                # convex combination of pd, qd and perturb
+                d_rhs = random_convex_combination(concat_params)
+                dpd, dqd = d_rhs[:optObj.n_bus], d_rhs[optObj.n_bus:2*optObj.n_bus]
+                optObj.change_loads(dpd,dqd)
+
+                # solve problem
+                _, info = prob.solve(info_base['x'],lagrange=info_base['mult_g'].tolist(),zl=info_base['mult_x_L'].tolist(),zu=info_base['mult_x_U'].tolist())
+                if info['status'] == 0:
+                    input_x_data = {'pd':dpd,'qd':dqd,'flow_lim_f':optObj.flow_lim,'flow_lim_t':optObj.flow_lim}
+                    input_x_2.append(np.concatenate([itm[1] for itm in input_x_data.items()]+[np.zeros_like(xlb),np.zeros_like(xub)],axis=0))
+                    dual = info['mult_g'][np.concatenate([optObj.cidx[consn] for consn in ['balance_real','balance_reac','flow_f','flow_t']])]
+                    duals_2.append(dual)
+                
+                # output status
+                t.set_description(f"Convex solve, point: {pt_idx+1}/{NUM_POINTS}, status: {info['status']}, process: ({mpi_rank+1}/{mpi_size}).")
+        
+        # combine
+        input_x = input_x_1 + input_x_2
+        duals = duals_1 + duals_2
             
         # save data
         os.makedirs(os.getcwd()+f'/data2',exist_ok=True)
-        if len(input_data) > 0:
-            np.savez_compressed(os.getcwd()+f'/data2/{cn}_inp_{mpi_rank}.npz',data=np.array(input))
+        if len(input_x) > 0:
+            np.savez_compressed(os.getcwd()+f'/data2/{cn}_inp_{mpi_rank}.npz',data=np.array(input_x))
             np.savez_compressed(os.getcwd()+f'/data2/{cn}_dual_{mpi_rank}.npz',data=np.array(duals))
