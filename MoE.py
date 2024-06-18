@@ -39,9 +39,9 @@ class MoE(nn.Module):
         
         return self.gating(x)
     
-    def forward(self, x):
+    def forward(self, x, N=10):
         
-        xICGN = self.ICGN(x, N=10)
+        xICGN = self.ICGN(x, N=N)
         xICNN = self.ICNN(x)
         
         g = self.gating(x)
