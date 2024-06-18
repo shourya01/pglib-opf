@@ -18,10 +18,14 @@ from time import time
 from oct2py import Oct2Py
 from ConvexModel import ConvexNet
 from ICGN import ICGN
+from ICNN import ICNN
+from CGN import ConvexGradientNetFull
 from ClassifierModel import ClassifierNet
 from RidgeModel import RidgeNet
 import xgboost as xgb
 from xgboost import XGBClassifier
+from MoE import MoE
+from utils import create_gating_network_targets, thres_tensor
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -117,7 +121,9 @@ if __name__ == "__main__":
         # importance weights
         dual_train_bind = np.where(np.abs(dual_data_train)>DUAL_THRES,1,0)
         dual_train_nobind = np.where(np.abs(dual_data_train)<DUAL_THRES,1,0)
-        WEIGHT_FOR_BINDING_CONSTR = int(10000*min(optObj.n_bus,1000))
+        WEIGHT_FOR_BINDING_CONSTR = int(1000*min(optObj.n_bus,1000))
+        WEIGHT_FOR_BINDING_CONSTR_2 = int(0.1*min(optObj.n_bus,1000))
+        #WEIGHT_FOR_BINDING_CONSTR = 1
         
         # acquire and preprocess test data
         inp_data_test = inp_data[int(0.8*inp_data.shape[0]):,:]
@@ -125,11 +131,15 @@ if __name__ == "__main__":
         inp_data_test = (inp_data_test - inp_min) / (inp_max - inp_min) # preprocess - min-max scaling
         # cost_data_test = cost_data[int(0.8*inp_data.shape[0]):,:]
         dual_data_test = dual_data[int(0.8*inp_data.shape[0]):,:]
+        dual_data_test_copy = dual_data_test.copy()
         dual_data_test = np.where(np.abs(dual_data_test)<DUAL_THRES,0.,1.) # preprocess to easily calculate confusion matrix
         best_test = np.zeros_like(dual_data_test)
         
+        # tensorize
+        inp_data_test_t, dual_data_test_t = torch.FloatTensor(inp_data_test).to('cuda'), torch.FloatTensor(dual_data_test_copy).to('cuda')
+        
         # vector for nonmodel inequalities
-        nmineq = np.ones(2*optObj.n_bus+4*optObj.n_branch+2*optObj.in_size)
+        nmineq = np.ones(2*optObj.n_bus+2*optObj.n_branch)
         nmineq[:2*optObj.n_bus] = 0
         nmineq = nmineq.astype(bool)
         
@@ -138,8 +148,11 @@ if __name__ == "__main__":
         
         # create convex net
         nn_shape = (inp_data.shape[1],300,150,150,1)
+        cModel = MoE(in_dim=inp_data.shape[1],V_dim=25,activations=[nn.ELU,nn.LeakyReLU,nn.Softplus,nn.LogSigmoid,nn.CELU],hidden_dim=150,layers=5,pos=True).to('cuda')
+        # cModel = ConvexGradientNetFull(dim_in=inp_data.shape[1],dim_V=25,activations=[nn.ELU,nn.LeakyReLU,nn.Softplus,nn.LogSigmoid,nn.CELU]).to('cuda')
+        # cModel = ICNN(in_dim=nn_shape[0],hidden=150,layers=4,pos=True).to('cuda')
         # cModel = ConvexNet(nn_shape,activation=nn.LeakyReLU).to('cuda')
-        cModel = ICGN(in_dim=nn_shape[0],hidden=1).to('cuda')
+        # cModel = ICGN(in_dim=nn_shape[0],hidden=1).to('cuda')
         # cModel = nn.Sequential(
         #     nn.Linear(nn_shape[0],1000),
         #     nn.LeakyReLU(),
@@ -185,23 +198,33 @@ if __name__ == "__main__":
             # optimConvex.zero_grad()
             # loss_grad.backward()
             # optimConvex.step()
-            # # FCNN
-            # loss_grad = F.binary_cross_entropy_with_logits(cModel(inp_t),torch.sigmoid(grad_t),weight=wt)
+            # FCNN
+            loss_ICNN = F.binary_cross_entropy_with_logits(cModel.forwardICNN(inp_t),torch.sigmoid(grad_t),weight=wt)
+            loss_ICGN = F.binary_cross_entropy_with_logits(cModel.forwardICGN(inp_t),torch.sigmoid(grad_t),weight=wt)
+            out_ICNN, out_ICGN = thres_tensor(cModel.forwardICNN(inp_t).detach()), thres_tensor(cModel.forwardICGN(inp_t).detach())
+            target_gating = create_gating_network_targets(thres_tensor(grad_t),out_ICNN,out_ICGN)
+            loss_full = F.binary_cross_entropy(cModel.forwardGating(inp_t),target_gating)
+            optimConvex.zero_grad()
+            loss_ICNN.backward()
+            optimConvex.step()
+            optimConvex.zero_grad()
+            loss_ICGN.backward()
+            optimConvex.step()
+            optimConvex.zero_grad()
+            loss_full.backward()
+            optimConvex.step()
+            # # ICGN
+            # loss_grad = F.binary_cross_entropy_with_logits(cModel(inp_t,N=100),torch.sigmoid(grad_t),weight=wt)
             # optimConvex.zero_grad()
             # loss_grad.backward()
             # optimConvex.step()
-            # ICGN
-            loss_grad = F.binary_cross_entropy_with_logits(cModel(inp_t,N=100),torch.sigmoid(grad_t),weight=wt)
-            optimConvex.zero_grad()
-            loss_grad.backward()
-            optimConvex.step()
             del wt
             del grad_t
-            losses.append(loss_grad.item())
+            losses.append(loss_full.item())
             # test
-            if (e+1) % 250 == 0:
+            if (e+1) % 100 == 0:
                 # train the router
-                # for _ in range(250):
+                # for _ in range(100):
                 #     random_idx = np.random.choice(inp_data_train.shape[0],BS,replace=False)
                 #     inp_t = torch.FloatTensor(inp_data_train[random_idx,:]).to(torch.float32).to('cuda:0')
                 #     grad_t = torch.FloatTensor(dual_data_train[random_idx,:]).to(torch.float32).to('cuda:0')
@@ -211,7 +234,7 @@ if __name__ == "__main__":
                 #     loss_grad.backward()
                 #     optimConvex.step()
                 inp = torch.FloatTensor(inp_data_test).to(torch.float32).to('cuda')
-                out_test = cModel(inp,N=100).detach().cpu().numpy()
+                out_test = cModel(inp).detach().cpu().numpy()
                 # out_test = cModel(inp).detach().cpu().numpy()
                 del inp
                 out_test = np.where(np.abs(out_test)<DUAL_THRES,0,1)
@@ -286,7 +309,7 @@ if __name__ == "__main__":
         #     del probs_t
         #     losses.append(loss_grad.item())
         #     # test
-        #     if (e+1) % 250 == 0:
+        #     if (e+1) % 100 == 0:
         #         inp = torch.FloatTensor(inp_data_test).to(torch.float32).to('cuda')
         #         out_test = ClassifierModel(inp).detach().cpu().numpy()
         #         del inp
@@ -371,7 +394,7 @@ if __name__ == "__main__":
         #         # torch.cuda.empty_cache()
         #     losses.append(loss_grad.item())
         #     # test
-        #     if (e+1) % 250 == 0:
+        #     if (e+1) % 100 == 0:
         #         out_collector = []
         #         for idx,model in enumerate(RidgeModels):
         #             inp = torch.FloatTensor(inp_data_test[:,:2*optObj.n_bus]).to(torch.float32).to(f'cuda:{idx}')

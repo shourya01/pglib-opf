@@ -1,4 +1,12 @@
-For case pglib_opf_case118_ieee, method: convex, best performance recorded on epoch 500/2000.
-TP: 11.05216, TN: 86.16604, FP: 2.78127, FN: 0.00053, train_time: 7.939674615859985s.
-For case pglib_opf_case793_goc, method: convex, best performance recorded on epoch 250/2000.
-TP: 0.00000, TN: 75.35615, FP: 0.00000, FN: 24.64385, train_time: 21.732736825942993s.
+For case pglib_opf_case118_ieee, method: convex, best performance recorded on epoch 400/2000.
+TP: 0.85618, TN: 94.35484, FP: 4.78898, FN: 0.00000, train_time: 79.1976044178009s.
+For case pglib_opf_case793_goc, method: convex, best performance recorded on epoch 300/2000.
+TP: 11.55271, TN: 69.38622, FP: 19.06065, FN: 0.00042, train_time: 33.30926036834717s.
+For case pglib_opf_case1354_pegase, method: convex, best performance recorded on epoch 2000/2000.
+TP: 0.96965, TN: 97.23753, FP: 1.79278, FN: 0.00004, train_time: 36.62540245056152s.
+For case pglib_opf_case2312_goc, method: convex, best performance recorded on epoch 2000/2000.
+TP: 7.13483, TN: 87.17198, FP: 5.69291, FN: 0.00028, train_time: 41.82274413108826s.
+For case pglib_opf_case4601_goc, method: convex, best performance recorded on epoch 2000/2000.
+TP: 31.93193, TN: 58.48034, FP: 9.58772, FN: 0.00000, train_time: 65.99248170852661s.
+For case pglib_opf_case10000_goc, method: convex, best performance recorded on epoch 1800/2000.
+TP: 9.94468, TN: 86.99689, FP: 3.05843, FN: 0.00000, train_time: 92.40927577018738s.

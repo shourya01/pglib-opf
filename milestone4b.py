@@ -140,7 +140,7 @@ if __name__ == "__main__":
             _, info = prob.solve(info_base['x'],lagrange=info_base['mult_g'].tolist(),zl=info_base['mult_x_L'].tolist(),zu=info_base['mult_x_U'].tolist())
             if info['status'] == 0:
                 input_x_data = {'pd':dpd,'qd':dqd,'flow_lim_f':optObj.flow_lim,'flow_lim_t':optObj.flow_lim}
-                input_x_1.append(np.concatenate([itm[1] for itm in input_x_data.items()]+[np.zeros_like(xlb),np.zeros_like(xub)],axis=0))
+                input_x_1.append(np.concatenate([itm[1] for itm in input_x_data.items()],axis=0))
                 dual = info['mult_g'][np.concatenate([optObj.cidx[consn] for consn in ['balance_real','balance_reac','flow_f','flow_t']])]
                 duals_1.append(dual)
             
@@ -167,7 +167,7 @@ if __name__ == "__main__":
                 _, info = prob.solve(info_base['x'],lagrange=info_base['mult_g'].tolist(),zl=info_base['mult_x_L'].tolist(),zu=info_base['mult_x_U'].tolist())
                 if info['status'] == 0:
                     input_x_data = {'pd':dpd,'qd':dqd,'flow_lim_f':optObj.flow_lim,'flow_lim_t':optObj.flow_lim}
-                    input_x_2.append(np.concatenate([itm[1] for itm in input_x_data.items()]+[np.zeros_like(xlb),np.zeros_like(xub)],axis=0))
+                    input_x_2.append(np.concatenate([itm[1] for itm in input_x_data.items()],axis=0))
                     dual = info['mult_g'][np.concatenate([optObj.cidx[consn] for consn in ['balance_real','balance_reac','flow_f','flow_t']])]
                     duals_2.append(dual)
                 

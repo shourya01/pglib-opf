@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 class ConvexNet(nn.Module):
     
-    def __init__(self, layer_sizes: Tuple, activation = nn.Softplus, dimV: int = 1, monotonicity = 1, dtype = torch.float32):
+    def __init__(self, layer_sizes: Tuple, activation = nn.Softplus, dimV: int = 100, monotonicity = 1, dtype = torch.float32):
         
         super(ConvexNet,self).__init__()
         
@@ -61,7 +61,7 @@ class ConvexNet(nn.Module):
             return torch.matmul(x,self.V.t() @ self.V)    
         
         # router  
-        if mode == 'train_router':      
+        if mode == 'train_router':
             with torch.no_grad():
                 x_monotonic_expert = self.forward(x,mode='train_monotonic')
                 x_monotone_expert = self.forward(x,mode='train_monotone')

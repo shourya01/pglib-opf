@@ -22,10 +22,10 @@ class ICNN(nn.Module):
         self.hidden = hidden
         self.pos = pos
         if pos:
-          self.lin = nn.ModuleList([
-                  posLinear(in_dim,hidden,bias=False),
-                  *[posLinear(hidden,hidden,bias=False) for _ in range(layers)],
-                  posLinear(hidden,1,bias=False)
+            self.lin = nn.ModuleList([
+                    posLinear(in_dim,hidden,bias=False),
+                    *[posLinear(hidden,hidden,bias=False) for _ in range(layers)],
+                    posLinear(hidden,1,bias=False)
           ])
         else:
           self.lin = nn.ModuleList([

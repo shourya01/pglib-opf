@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 import numpy as np
+from SplitLinear import SplitLinear
 
 class justOrtho(nn.Module):
 
@@ -29,8 +30,8 @@ class ICGN(nn.Module):
 
         
         self.lin = nn.ModuleList([
-                nn.Linear(in_dim,hidden,bias=True),
-                *[nn.Linear(hidden,hidden) for _ in range(layers)],
+                SplitLinear(in_dim,hidden,bias=True),
+                *[SplitLinear(hidden,hidden) for _ in range(layers)],
         ])
 
         # self.act = nn.Sigmoid()
