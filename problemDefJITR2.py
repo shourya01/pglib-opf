@@ -89,10 +89,17 @@ class opfSocpR():
     def generateIndices(self):
         
         # process reductions
-        assert self.reductions.size == 4*self.n_branch+2*(self.n_bus + 6*self.n_branch + 2*self.n_gen), "Incorrect size of reductions vector"
-        self.reductions_cons = self.reductions[:4*self.n_branch]
-        self.reductions_vars = self.reductions[4*self.n_branch:]
-        self.idx_ffr, self.idx_ftr, self.idx_aminr, self.idx_amaxr = np.array_split(self.reductions_cons,4)
+        # assert self.reductions.size == 4*self.n_branch+2*(self.n_bus + 6*self.n_branch + 2*self.n_gen), "Incorrect size of reductions vector"
+        # self.reductions_cons = self.reductions[:4*self.n_branch]
+        # self.reductions_vars = self.reductions[4*self.n_branch:]
+        # self.idx_ffr, self.idx_ftr, self.idx_aminr, self.idx_amaxr = np.array_split(self.reductions_cons,4)
+        
+        # we do some hack TODO amke it concrete
+        assert self.reductions.size == 2*self.n_branch
+        self.reductions_cons = self.reductions
+        self.reductions_vars = np.ones(2*(self.n_bus + 6*self.n_branch + 2*self.n_gen))
+        self.idx_ffr, self.idx_ftr = np.array_split(self.reductions_cons,2)
+        self.idx_aminr, self.idx_amaxr = np.ones_like(self.idx_ffr), np.ones_like(self.idx_ftr)
         
         # input size
         self.in_size = self.n_bus + 6*self.n_branch + 2*self.n_gen
@@ -290,7 +297,7 @@ class opfSocpR():
             jacidx[cons_counter,self.vidx['iW'][attr['idx']]] = 1
             jacidx[cons_counter,self.vidx['rW'][attr['idx']]] = 1
             cons_counter += 1
-            self.is_model.append(0)
+            self.is_model.append(1)
             self.is_nonmodel_equality.append(0)
             self.is_equality.append(0)
             
@@ -302,7 +309,7 @@ class opfSocpR():
             jacidx[cons_counter,self.vidx['rW'][attr['idx']]] = 1
             jacidx[cons_counter,self.vidx['iW'][attr['idx']]] = 1
             cons_counter += 1
-            self.is_model.append(0)
+            self.is_model.append(1)
             self.is_nonmodel_equality.append(0)
             self.is_equality.append(0)
             
