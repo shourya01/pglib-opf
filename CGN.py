@@ -27,6 +27,6 @@ class ConvexGradientNetFull(nn.Module):
         outs = [mod(x) for mod in self.CGNunits]
         units = sum(outs)
         vtvx = torch.matmul(x,self.get_lr_mat())
-        return self.bias + vtvx + units
+        return (vtvx + units) if outs != [] else (self.bias + vtvx)
     
     

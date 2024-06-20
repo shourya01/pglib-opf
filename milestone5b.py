@@ -23,7 +23,9 @@ import xgboost as xgb
 from xgboost import XGBClassifier
 from MoE import MoE
 from ICNN import ICNN
+from ICGN import ICGN
 from utils import create_gating_network_targets, thres_tensor
+from CGN import ConvexGradientNetFull
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -140,7 +142,7 @@ if __name__ == "__main__":
         np.savez_compressed(os.getcwd()+f'/saved/{cn}_test_gt.npz',data=dual_data_test[:,nmineq])
         
         # create MoE net
-        MoeModel = MoE(in_dim=inp_data.shape[1],V_dim=25,activations=[nn.ELU,nn.LeakyReLU,nn.Softplus,nn.LogSigmoid,nn.CELU],hidden_dim=150,layers=5,pos=True).to('cuda')
+        MoeModel = MoE(in_dim=inp_data.shape[1],V_dim=200,activations=[nn.LeakyReLU,nn.Softplus],hidden_dim=150,layers=5,pos=True).to('cuda')
         for p in MoeModel.parameters():
             p.data.fill_(0.01)
         BS = 32 # batch size
@@ -165,7 +167,7 @@ if __name__ == "__main__":
             loss_ICNN = F.binary_cross_entropy_with_logits(MoeModel.forwardICNN(inp_t),torch.sigmoid(grad_t),weight=wt)
             loss_ICGN = F.binary_cross_entropy_with_logits(MoeModel.forwardICGN(inp_t),torch.sigmoid(grad_t),weight=wt)
             out_ICNN, out_ICGN = thres_tensor(MoeModel.forwardICNN(inp_t).detach()), thres_tensor(MoeModel.forwardICGN(inp_t).detach())
-            target_gating = create_gating_network_targets(thres_tensor(grad_t),out_ICNN,out_ICGN)
+            target_gating = create_gating_network_targets(thres_tensor(grad_t),out_ICNN,out_ICGN,nmineq)
             loss_full = F.binary_cross_entropy(MoeModel.forwardGating(inp_t),target_gating)
             optimMoe.zero_grad()
             loss_ICNN.backward()
@@ -232,7 +234,7 @@ if __name__ == "__main__":
         for p in ConvexModel.parameters():
             p.data.fill_(0.01)
         BS = 32 # batch size
-        optimConvex = torch.optim.Adam(ConvexModel.parameters(),lr=1e-4,weight_decay=1e-2)
+        optimConvex = torch.optim.Adam(ConvexModel.parameters(),lr=1e-4,weight_decay=0)
         epochs = 2000
         losses = []
         FP, FN, TP, TN = [], [], [], []
@@ -250,8 +252,9 @@ if __name__ == "__main__":
             inp_t = torch.FloatTensor(inp_data_train[random_idx,:]).to(torch.float32).to('cuda')
             # cost_t = torch.FloatTensor(cost_data_train[random_idx,:]).to('cuda') 
             grad_t = torch.FloatTensor(dual_data_train[random_idx,:]).to(torch.float32).to('cuda')
+            # wt = torch.FloatTensor(np.where(np.abs(dual_data_train[random_idx,:])<DUAL_THRES,1,2)).to(torch.float32).to('cuda')
             # loss_cost = F.mse_loss(ConvexModel(inp_t),cost_t,reduction='mean')
-            loss_grad = F.binary_cross_entropy_with_logits(ConvexModel(inp_t),torch.sigmoid(grad_t))
+            loss_grad = F.binary_cross_entropy_with_logits(ConvexModel(inp_t),torch.sigmoid(grad_t),weight=None)
             # loss = loss_grad
             optimConvex.zero_grad()
             loss_grad.backward()
@@ -302,6 +305,87 @@ if __name__ == "__main__":
         else:
             np.savez_compressed(os.getcwd()+f'/saved/{cn}_out_convex.npz',data=out_test)
         del ConvexModel
+        gc.collect()
+        torch.cuda.empty_cache()
+        
+        
+        # create icgn net
+        nn_shape = (inp_data.shape[1],300,150,150,1)
+        ICGNModel = ConvexGradientNetFull(dim_in=inp_data.shape[1],dim_V=200,activations=[]).to('cuda')
+        for p in ICGNModel.parameters():
+            p.data.fill_(0.01)
+        BS = 32 # batch size
+        optimICGN = torch.optim.Adam(ICGNModel.parameters(),lr=1e-2,weight_decay=0)
+        epochs = 2000
+        losses = []
+        FP, FN, TP, TN = [], [], [], []
+        FP_best, FN_best, TP_best, TN_best = 0, dual_data_test.size, 0, 0
+        times = 0
+        
+        # carry out training for icgn neural net
+        first_test_done = False
+        best_recorded = False
+        best_epoch = 0
+        start = time()
+        for e in range(epochs):
+            np.random.seed(e)
+            random_idx = np.random.choice(inp_data_train.shape[0],BS,replace=False)
+            inp_t = torch.FloatTensor(inp_data_train[random_idx,:]).to(torch.float32).to('cuda')
+            # cost_t = torch.FloatTensor(cost_data_train[random_idx,:]).to('cuda') 
+            grad_t = torch.FloatTensor(dual_data_train[random_idx,:]).to(torch.float32).to('cuda')
+            # loss_cost = F.mse_loss(ConvexModel(inp_t),cost_t,reduction='mean')
+            # wt = torch.FloatTensor(np.where(np.abs(dual_data_train[random_idx,:])<DUAL_THRES,100,1)).to(torch.float32).to('cuda')
+            loss_grad = F.binary_cross_entropy_with_logits(ICGNModel.forward(inp_t),torch.sigmoid(grad_t),weight=None)
+            # loss = loss_grad
+            optimICGN.zero_grad()
+            loss_grad.backward()
+            optimICGN.step()
+            del grad_t
+            losses.append(loss_grad.item())
+            # test
+            if (e+1) % 100 == 0:
+                inp = torch.FloatTensor(inp_data_test).to(torch.float32).to('cuda')
+                out_test = ICGNModel.forward(inp).detach().cpu().numpy()
+                del inp
+                out_test = np.where(np.abs(out_test)<DUAL_THRES,0,1)
+                tp, tn, fp, fn = out_test[:,nmineq]*dual_data_test[:,nmineq],\
+                    (1-out_test[:,nmineq])*(1-dual_data_test[:,nmineq]),\
+                    out_test[:,nmineq]*(1-dual_data_test[:,nmineq]),\
+                    (1-out_test[:,nmineq])*(dual_data_test[:,nmineq])
+                tp, tn, fp, fn = tp.sum().item(), tn.sum().item(), fp.sum().item(), fn.sum().item()
+                FP.append(fp)
+                TP.append(tp)
+                FN.append(fn)
+                TN.append(tn) 
+                first_test_done = True
+                # print
+                if first_test_done:
+                    allv = tp + tn + fp + fn
+                    print(f"For case {cn}, method: ICGN, loss on epoch {e+1} is {losses[-1]:.5f}. TP: {tp*100/allv:.5f}, TN: {tn*100/allv:.5f}, FP: {fp*100/allv:.5f}, FN: {fn*100/allv:.5f}.",flush=True)
+                    if tn >= TN_best: # best false negative when true negatives is above 50 percent
+                        best_recorded, best_epoch = True, e+1
+                        TP_best = tp
+                        TN_best = tn
+                        FP_best = fp
+                        FN_best = fn
+                        best_test = out_test
+                        torch.save(ICGNModel.state_dict(),os.getcwd()+f'/saved/{cn}_ICGNModel.pth')
+                else:
+                    print(f"For case {cn}, method: ICGN, loss on epoch {e+1} is {losses[-1]:.5f}.",flush=True)
+                # log
+                if (e+1) == epochs:
+                    if best_recorded:
+                        times = time() - start
+                        logfile.write(f"For case {cn}, method: ICGN, best performance recorded on epoch {best_epoch}/{epochs}.\nTP: {TP_best*100/allv:.5f}, TN: {TN_best*100/allv:.5f}, FP: {FP_best*100/allv:.5f}, FN: {FN_best*100/allv:.5f}, train_time: {times}s.\n")
+                    else:
+                        logfile.write(f"For case {cn}, method: ICGN. TP: {tp*100/allv:.5f}, TN: {tn*100/allv:.5f}, FP: {fp*100/allv:.5f}, FN: {fn*100/allv:.5f}.\n")
+        if not best_recorded:
+            torch.save(ICGNModel.state_dict(),os.getcwd()+f'/saved/{cn}_ICGNModel.pth')
+        if best_recorded:
+            np.savez_compressed(os.getcwd()+f'/saved/{cn}_out_icgn.npz',data=best_test)
+        else:
+            np.savez_compressed(os.getcwd()+f'/saved/{cn}_out_icgn.npz',data=out_test)
+        del ICGNModel
         gc.collect()
         torch.cuda.empty_cache()
                 

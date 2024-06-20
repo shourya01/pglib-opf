@@ -14,15 +14,15 @@ def make_data_parallel(model:nn.Module, sz: int):
     else:
         return model 
     
-def create_gating_network_targets(gt, model1out, model2out):
+def create_gating_network_targets(gt, model1out, model2out, nmineq):
     
     # here assuming that model1 is the 'preferred' model
     # and you should only revery to model2 when model1 is wrong
     
-    out = torch.ones_like(gt)
+    out = model1out.clone().detach()
     
-    out = torch.where((model1out != gt) & (model2out == gt),
-                    torch.zeros_like(gt), torch.ones_like(gt))
+    out[:,nmineq] = torch.where((model1out[:,nmineq] != gt[:,nmineq]) & (model2out[:,nmineq] == gt[:,nmineq]),
+                    torch.zeros_like(gt[:,nmineq]), torch.ones_like(gt[:,nmineq]))
     out.to(model1out.device)
     
     return out

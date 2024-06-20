@@ -115,6 +115,7 @@ if __name__ == "__main__":
         gt_data = np.load(os.getcwd()+f'/saved/{cn}_test_gt.npz')['data'] # ground truth
         moe_out = np.load(os.getcwd()+f'/saved/{cn}_out_moe.npz')['data'] # moe
         convex_out = np.load(os.getcwd()+f'/saved/{cn}_out_convex.npz')['data'] # convex
+        icgn_out = np.load(os.getcwd()+f'/saved/{cn}_out_icgn.npz')['data'] # icgn
         classifier_out = np.load(os.getcwd()+f'/saved/{cn}_out_classifier.npz')['data'].astype(int) # classifier
         ridge_out = np.load(os.getcwd()+f'/saved/{cn}_out_ridge.npz')['data'].astype(int) # ridge
         if cn != 'pglib_opf_case10000_goc':
@@ -137,12 +138,13 @@ if __name__ == "__main__":
         full_times = []
         moe_times, moe_solves = [], []
         convex_times, convex_solves = [], []
+        icgn_times, icgn_solves = [], []
         classifier_times, classifier_solves = [], []
         ridge_times, ridge_solves = [], []
         xgboost_times, xgboost_solves = [], []
         optObj = opfSocp(this_case,cn)
         
-        for sidx in range(NUM_SOLVES):
+        for sidx in trange(NUM_SOLVES):
             
             # mpi
             if sidx not in this_split:
@@ -265,6 +267,58 @@ if __name__ == "__main__":
                 print(f"Reduced problem solved in {(timeco):.5f}s with 2 solves, objective {obj_cosecond} with {inferred_viols.sum()} violations.")
                 convex_times.append(timeco)
                 convex_solves.append(solvesco)
+                
+            
+            # ICGN
+            
+            # print
+            print("ICGN:")
+            
+            # marker
+            icgn_marker = icgn_out[sidx,:][nmineq]
+            
+            # calculate first solve for convex
+            optObjR = opfSocpR(this_case,icgn_marker,cn)
+            optObjR.change_loads(pd,qd)
+            pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs_reduced(optObjR)
+            prob = cyipopt.Problem(**pdk)
+            for k,v in psk.items():
+                prob.add_option(k,v)
+            start = time()
+            xicfirst, infoicfirst = prob.solve(optObjR.calc_x0_flatstart())
+            obj_icfirst = infoicfirst['obj_val']
+            end = time()
+            timeic = end-start
+            solvesic = 1
+            
+            # infer violated constraints
+            inferred_nmineq = optObj.constraints(xicfirst).clip(min=0)[ineqidx]
+            inferred_viols = np.where(np.abs(inferred_nmineq)>VIOL_THRES,1,0)
+            
+            if inferred_viols.sum() == 0:
+                print(f"Reduced problem solved in {(timeic):.5f}s with 1 solve, objective {obj_icfirst} with {inferred_viols.sum()} violations.")
+                icgn_times.append(timeic)
+                icgn_solves.append(solvesic)
+            else:
+                print(f"Detected {inferred_viols.sum()} violations with objective {obj_icfirst}.")
+                icgn_marker = np.where(icgn_marker+inferred_viols>0,1,0)
+                optObjR = opfSocpR(this_case,icgn_marker,cn)
+                optObjR.change_loads(pd,qd)
+                pdk, psk = problem_def_kwargs(optObjR,*optObjR.calc_var_bounds(),*optObjR.calc_cons_bounds()), problem_settings_kwargs_reduced(optObjR)
+                prob = cyipopt.Problem(**pdk)
+                for k,v in psk.items():
+                    prob.add_option(k,v)
+                start = time()
+                xicsecond, infoicsecond = prob.solve(optObjR.calc_x0_flatstart())
+                obj_icsecond = infoicsecond['obj_val']
+                end = time()
+                timeic += end-start
+                solvesic += 1
+                inferred_nmineq = optObj.constraints(xicsecond).clip(min=0)[ineqidx]
+                inferred_viols = np.where(np.abs(inferred_nmineq)>VIOL_THRES,1,0)
+                print(f"Reduced problem solved in {(timeic):.5f}s with 2 solves, objective {obj_icsecond} with {inferred_viols.sum()} violations.")
+                icgn_times.append(timeic)
+                icgn_solves.append(solvesic)
                 
             # CLASSIFIER
             
@@ -422,6 +476,7 @@ if __name__ == "__main__":
         full_times = np.array(full_times)
         moe_times, moe_solves = np.array(moe_times).astype(np.double), np.array(moe_solves).astype(np.double)
         convex_times, convex_solves = np.array(convex_times).astype(np.double), np.array(convex_solves).astype(np.double)
+        icgn_times, icgn_solves = np.array(icgn_times).astype(np.double), np.array(icgn_solves).astype(np.double)
         classifier_times, classifier_solves = np.array(classifier_times).astype(np.double), np.array(classifier_solves).astype(np.double)
         ridge_times, ridge_solves = np.array(ridge_times).astype(np.double), np.array(ridge_solves).astype(np.double)
         xgboost_times, xgboost_solves = np.array(xgboost_times).astype(np.double), np.array(xgboost_solves).astype(np.double)
@@ -438,65 +493,88 @@ if __name__ == "__main__":
             
             
         if mpi_rank == 0:
-            ftimes, mtimes, ctimes, cltimes, rtimes, xtimes = [full_times], [moe_times], [convex_times], [classifier_times], [ridge_times], [xgboost_times]
-            msolves, csolves, clsolves, rsolves, xsolves = [moe_solves], [convex_solves], [classifier_solves], [ridge_solves], [xgboost_solves]
+            ftimes, mtimes, ctimes, itimes, cltimes, rtimes, xtimes = [full_times], [moe_times], [convex_times], [icgn_times], [classifier_times], [ridge_times], [xgboost_times]
+            msolves, csolves, isolves, clsolves, rsolves, xsolves = [moe_solves], [convex_solves], [icgn_solves], [classifier_solves], [ridge_solves], [xgboost_solves]
             for rk in range(mpi_size-1):
                 this_data1 = np.empty(sz[rk],dtype=np.double)
                 this_data1.fill(np.nan)
-                comm.Recv([this_data1,MPI.DOUBLE],source=rk+1,tag=0 + 11*(rk+1))
+                comm.Recv([this_data1,MPI.DOUBLE],source=rk+1,tag=0 + 13*(rk+1))
                 ftimes.append(this_data1)
+                #
                 this_data2 = np.empty(sz[rk],dtype=np.double)
                 this_data2.fill(np.nan)
-                comm.Recv([this_data2,MPI.DOUBLE],source=rk+1,tag=1 + 11*(rk+1))
+                comm.Recv([this_data2,MPI.DOUBLE],source=rk+1,tag=1 + 13*(rk+1))
                 mtimes.append(this_data2)
+                #
                 this_data3 = np.empty(sz[rk],dtype=np.double)
                 this_data3.fill(np.nan)
-                comm.Recv([this_data3,MPI.DOUBLE],source=rk+1,tag=2 + 11*(rk+1))
+                comm.Recv([this_data3,MPI.DOUBLE],source=rk+1,tag=2 + 13*(rk+1))
                 ctimes.append(this_data3)
+                #
                 this_data4 = np.empty(sz[rk],dtype=np.double)
                 this_data4.fill(np.nan)
-                comm.Recv([this_data4,MPI.DOUBLE],source=rk+1,tag=3 + 11*(rk+1))
-                cltimes.append(this_data4)
+                comm.Recv([this_data4,MPI.DOUBLE],source=rk+1,tag=3 + 13*(rk+1))
+                itimes.append(this_data4)
+                #
                 this_data5 = np.empty(sz[rk],dtype=np.double)
                 this_data5.fill(np.nan)
-                comm.Recv([this_data5,MPI.DOUBLE],source=rk+1,tag=4 + 11*(rk+1))
-                rtimes.append(this_data5)
+                comm.Recv([this_data5,MPI.DOUBLE],source=rk+1,tag=4 + 13*(rk+1))
+                cltimes.append(this_data5)
+                #
                 this_data6 = np.empty(sz[rk],dtype=np.double)
                 this_data6.fill(np.nan)
-                comm.Recv([this_data6,MPI.DOUBLE],source=rk+1,tag=5 + 11*(rk+1))
-                xtimes.append(this_data6)
+                comm.Recv([this_data6,MPI.DOUBLE],source=rk+1,tag=5 + 13*(rk+1))
+                rtimes.append(this_data6)
+                #
                 this_data7 = np.empty(sz[rk],dtype=np.double)
                 this_data7.fill(np.nan)
-                comm.Recv([this_data7,MPI.DOUBLE],source=rk+1,tag=6 + 11*(rk+1))
-                msolves.append(this_data7)
+                comm.Recv([this_data7,MPI.DOUBLE],source=rk+1,tag=6 + 13*(rk+1))
+                xtimes.append(this_data7)
+                #
                 this_data8 = np.empty(sz[rk],dtype=np.double)
                 this_data8.fill(np.nan)
-                comm.Recv([this_data8,MPI.DOUBLE],source=rk+1,tag=7 + 11*(rk+1))
-                csolves.append(this_data8)
+                comm.Recv([this_data8,MPI.DOUBLE],source=rk+1,tag=7 + 13*(rk+1))
+                msolves.append(this_data8)
+                #
                 this_data9 = np.empty(sz[rk],dtype=np.double)
                 this_data9.fill(np.nan)
-                comm.Recv([this_data9,MPI.DOUBLE],source=rk+1,tag=8 + 11*(rk+1))
-                clsolves.append(this_data9)
+                comm.Recv([this_data9,MPI.DOUBLE],source=rk+1,tag=8 + 13*(rk+1))
+                csolves.append(this_data9)
+                #
                 this_data10 = np.empty(sz[rk],dtype=np.double)
                 this_data10.fill(np.nan)
-                comm.Recv([this_data10,MPI.DOUBLE],source=rk+1,tag=9 + 11*(rk+1))
-                rsolves.append(this_data10)
+                comm.Recv([this_data10,MPI.DOUBLE],source=rk+1,tag=9 + 13*(rk+1))
+                isolves.append(this_data10)
+                #
                 this_data11 = np.empty(sz[rk],dtype=np.double)
                 this_data11.fill(np.nan)
-                comm.Recv([this_data11,MPI.DOUBLE],source=rk+1,tag=10 + 11*(rk+1))
-                xsolves.append(this_data11)
+                comm.Recv([this_data11,MPI.DOUBLE],source=rk+1,tag=10 + 13*(rk+1))
+                clsolves.append(this_data11)
+                #
+                this_data12 = np.empty(sz[rk],dtype=np.double)
+                this_data12.fill(np.nan)
+                comm.Recv([this_data12,MPI.DOUBLE],source=rk+1,tag=11 + 13*(rk+1))
+                rsolves.append(this_data12)
+                #
+                this_data13 = np.empty(sz[rk],dtype=np.double)
+                this_data13.fill(np.nan)
+                comm.Recv([this_data13,MPI.DOUBLE],source=rk+1,tag=12 + 13*(rk+1))
+                xsolves.append(this_data13)
+                #
         else:
-            comm.Send([full_times,MPI.DOUBLE],dest=0,tag=0+11*mpi_rank)
-            comm.Send([moe_times,MPI.DOUBLE],dest=0,tag=1+11*mpi_rank)
-            comm.Send([convex_times,MPI.DOUBLE],dest=0,tag=2+11*mpi_rank)
-            comm.Send([classifier_times,MPI.DOUBLE],dest=0,tag=3+11*mpi_rank)
-            comm.Send([ridge_times,MPI.DOUBLE],dest=0,tag=4+11*mpi_rank)
-            comm.Send([xgboost_times,MPI.DOUBLE],dest=0,tag=5+11*mpi_rank)
-            comm.Send([moe_solves,MPI.DOUBLE],dest=0,tag=6+11*mpi_rank)
-            comm.Send([convex_solves,MPI.DOUBLE],dest=0,tag=7+11*mpi_rank)
-            comm.Send([classifier_solves,MPI.DOUBLE],dest=0,tag=8+11*mpi_rank)
-            comm.Send([ridge_solves,MPI.DOUBLE],dest=0,tag=9+11*mpi_rank)
-            comm.Send([xgboost_solves,MPI.DOUBLE],dest=0,tag=10+11*mpi_rank)    
+            comm.Send([full_times,MPI.DOUBLE],dest=0,tag=0+13*mpi_rank)
+            comm.Send([moe_times,MPI.DOUBLE],dest=0,tag=1+13*mpi_rank)
+            comm.Send([convex_times,MPI.DOUBLE],dest=0,tag=2+13*mpi_rank)
+            comm.Send([icgn_times,MPI.DOUBLE],dest=0,tag=3+13*mpi_rank)
+            comm.Send([classifier_times,MPI.DOUBLE],dest=0,tag=4+13*mpi_rank)
+            comm.Send([ridge_times,MPI.DOUBLE],dest=0,tag=5+13*mpi_rank)
+            comm.Send([xgboost_times,MPI.DOUBLE],dest=0,tag=6+13*mpi_rank)
+            comm.Send([moe_solves,MPI.DOUBLE],dest=0,tag=7+13*mpi_rank)
+            comm.Send([convex_solves,MPI.DOUBLE],dest=0,tag=8+13*mpi_rank)
+            comm.Send([icgn_solves,MPI.DOUBLE],dest=0,tag=9+13*mpi_rank)
+            comm.Send([classifier_solves,MPI.DOUBLE],dest=0,tag=10+13*mpi_rank)
+            comm.Send([ridge_solves,MPI.DOUBLE],dest=0,tag=11+13*mpi_rank)
+            comm.Send([xgboost_solves,MPI.DOUBLE],dest=0,tag=12+13*mpi_rank)    
                     
                 
         if mpi_rank == 0:        
@@ -524,6 +602,8 @@ if __name__ == "__main__":
                     f"\nreduced problem average solves (moe): {np.array(moe_solves[moe_solves!=0]).mean()}."
                     f"\nreduced problem average solve time (convex): {np.array(convex_times[convex_times!=0]).mean()}"
                     f"\nreduced problem average solves (convex): {np.array(convex_solves[convex_solves!=0]).mean()}."
+                    f"\nreduced problem average solve time (icgn): {np.array(icgn_times[icgn_times!=0]).mean()}"
+                    f"\nreduced problem average solves (icgn): {np.array(icgn_solves[icgn_solves!=0]).mean()}."
                     f"\nreduced problem average solve time (classifier): {np.array(classifier_times[classifier_times!=0]).mean()}"
                     f"\nreduced problem average solves (classifier): {np.array(classifier_solves[classifier_solves!=0]).mean()}."
                     f"\nreduced problem average solve time (ridge): {np.array(ridge_times[ridge_times!=0]).mean()}"
@@ -538,6 +618,8 @@ if __name__ == "__main__":
                     f"\nreduced problem average solves (moe): {np.array(moe_solves[moe_solves!=0]).mean()}."
                     f"\nreduced problem average solve time (convex): {np.array(convex_times[convex_times!=0]).mean()}"
                     f"\nreduced problem average solves (convex): {np.array(convex_solves[convex_solves!=0]).mean()}."
+                    f"\nreduced problem average solve time (icgn): {np.array(icgn_times[icgn_times!=0]).mean()}"
+                    f"\nreduced problem average solves (icgn): {np.array(icgn_solves[icgn_solves!=0]).mean()}."
                     f"\nreduced problem average solve time (classifier): {np.array(classifier_times[classifier_times!=0]).mean()}"
                     f"\nreduced problem average solves (classifier): {np.array(classifier_solves[classifier_solves!=0]).mean()}."
                     f"\nreduced problem average solve time (ridge): {np.array(ridge_times[ridge_times!=0]).mean()}"

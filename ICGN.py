@@ -27,15 +27,14 @@ class ICGN(nn.Module):
         self.hidden = hidden
         self.in_dim = in_dim
         self.out_dim = in_dim
-
         
         self.lin = nn.ModuleList([
-                SplitLinear(in_dim,hidden,bias=True),
-                *[SplitLinear(hidden,hidden) for _ in range(layers)],
+                nn.Linear(in_dim,hidden,bias=True),
+                *[nn.Linear(hidden,hidden,bias=True) for _ in range(layers)],
         ])
 
-        # self.act = nn.Sigmoid()
-        self.act = lambda x: nn.Softplus()(x) - np.log(2)
+        self.act = nn.LeakyReLU()
+        # self.act = lambda x: nn.Softplus()(x) - np.log(2)
 
     def jvp(self, x,v):
         with torch.enable_grad():

@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from SplitLinear import SplitLinear
 
 class ConvexGradientNet1(nn.Module):
     
@@ -8,7 +9,7 @@ class ConvexGradientNet1(nn.Module):
         super(ConvexGradientNet1,self).__init__()
         
         self.activationFn = activation()
-        self.lin = nn.Linear(in_dim,in_dim)
+        self.lin = SplitLinear(in_dim,in_dim,num_cuda=torch.cuda.device_count()) 
         
     def act_(self, x):
         
@@ -26,7 +27,7 @@ class ConvexGradientNet1(nn.Module):
         
         x = self.act_(z)
         y = self.d_act_(z)
-        W = self.lin.weight.t()
+        W = self.lin.get_weight().t()
         
         return x * torch.matmul(y,W)
         

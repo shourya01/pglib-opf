@@ -4,6 +4,7 @@ from ICGN import ICGN
 from ICNN import ICNN
 from typing import List, Tuple, Union
 from SplitLinear import SplitLinear
+from CGN import ConvexGradientNetFull
 
 EPS = 1e-5
 
@@ -13,8 +14,9 @@ class MoE(nn.Module):
         
         super(MoE,self).__init__()
         
-        self.ICGN = ICGN(in_dim = in_dim, hidden = hidden_dim, layers=layers)
-        self.ICNN = ICNN(in_dim = in_dim, hidden=hidden_dim,layers=layers,pos=pos)
+        self.ICGN = ConvexGradientNetFull(dim_in=in_dim,dim_V=200,activations=[]).to('cuda')
+        # self.ICGN = ICGN(in_dim = in_dim, hidden = hidden_dim,layers=0)
+        self.ICNN = ICNN(in_dim = in_dim, hidden = hidden_dim,layers=layers,pos=pos)
         
         self.gating = nn.Sequential(
             SplitLinear(in_dim,hidden_dim),
@@ -27,9 +29,10 @@ class MoE(nn.Module):
         
         # self.norm2 = lambda x,y: ((x**2 + EPS) / (x**2 + y**2 + EPS), (y**2 + EPS) / (x**2 + y**2 + EPS))
         
-    def forwardICGN(self, x, N=10):
+    def forwardICGN(self, x, N=20):
         
-        return self.ICGN(x, N=N)
+        # return self.ICGN(x, N=N)
+        return self.ICGN(x)
     
     def forwardICNN(self, x):
         
@@ -39,9 +42,10 @@ class MoE(nn.Module):
         
         return self.gating(x)
     
-    def forward(self, x, N=10):
+    def forward(self, x, N=20):
         
-        xICGN = self.ICGN(x, N=N)
+        # xICGN = self.ICGN(x, N=N)
+        xICGN = self.ICGN(x)
         xICNN = self.ICNN(x)
         
         g = self.gating(x)
